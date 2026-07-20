@@ -1,0 +1,19 @@
+{
+  "id": "agent-orchestrator",
+  "name": "Agent 工作编排助手",
+  "emoji": "🤖",
+  "shortDesc": "自动匹配 Skills → 设计拓扑 → 定义交接 → 生成编排方案和实施建议",
+  "description": "输入工作内容和要求，自动从 Skills 库中匹配相关 Skill，设计编排拓扑（Parallel/Pipeline/Hybrid），定义输入输出契约和交接规则，生成完整的编排方案。",
+  "skills": ["context-engineering-advisor","agent-orchestration-advisor","skill-authoring-workflow","workshop-facilitation","eol-message"],
+  "phases": [
+    { "id":"p1","title":"需求采集","description":"了解工作场景、约束和目标，判断是否适合编排。","skills":["context-engineering-advisor","agent-orchestration-advisor"],"guidance":"问4个问题：每周花多少时间？重复还是判断？顺序还是并行？期望的自动化程度？" },
+    { "id":"p2","title":"AI-Shaped 判定","description":"判定任务是否适合 Agent 编排（重复性、耗时、可并行化、需要一致性）。","skills":["agent-orchestration-advisor"],"guidance":"按4个标准判定：≥5h/周、重复性高、可并行化、需要一致性。符合条件的进入下一步。" },
+    { "id":"p3","title":"Skill 匹配","description":"根据工作内容自动检索匹配的 Skills。","skills":[],"guidance":"根据用户描述的工作内容，从 Skills 库中自动匹配相关 Skill（按关键词和类型），返回匹配列表。" },
+    { "id":"p4","title":"拓扑设计","description":"设计编排拓扑：Full Parallel / Pipeline / Hybrid。","skills":["agent-orchestration-advisor"],"guidance":"分析 Skill 之间的依赖关系，确定拓扑结构：独立→并行、依赖→管线、混合→Hybrid。" },
+    { "id":"p5","title":"边界与交接定义","description":"定义每个 Skill 的输入输出契约和交接规则。","skills":["agent-orchestration-advisor"],"guidance":"为每个 Skill 定义输入格式（需要什么数据）、输出格式（产出什么）、交接规则（如何传递）。" },
+    { "id":"p6","title":"编排方案生成","description":"生成完整编排方案和分周实施路线图。","skills":["skill-authoring-workflow","workshop-facilitation","eol-message"],"guidance":"生成包含拓扑图、Skill 列表、输入输出契约、预计时间节省、人工介入点、分周实施计划的完整编排方案。" }
+  ],
+  "outputs": ["自动化工作流编排方案","拓扑结构图","Skill 匹配列表","输入输出契约文档","分周实施计划"],
+  "estimatedTime": "15-25 min",
+  "triggerScenarios": ["帮我设计自动化工作流","我需要编排多个 AI Agent 完成任务"]
+}

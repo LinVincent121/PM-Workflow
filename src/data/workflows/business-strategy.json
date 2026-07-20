@@ -1,0 +1,20 @@
+{
+  "id": "business-strategy",
+  "name": "商业分析与战略布局",
+  "emoji": "📊",
+  "shortDesc": "从战略定位到财务计划，生成包含商业模式、市场规模、投资方向的完整商业报告",
+  "description": "以完善后的产品想法和竞品分析为输入，进行战略定位、市场规模计算、商业模式设计、财务计划制定、投资方向确定和风险评估，生成完整的商业分析报告。",
+  "skills": ["positioning-workshop","product-strategy-session","problem-statement","tam-sam-som-calculator","pestel-analysis","company-intel","recommendation-canvas","feature-investment-advisor","organic-growth-advisor","finance-based-pricing-advisor","saas-economics-efficiency-metrics","saas-revenue-growth-metrics","finance-metrics-quickref","prioritization-advisor","epic-hypothesis","derisk-measurement-advisor","pol-probe-advisor","business-health-diagnostic","roadmap-planning","storyboard","press-release","eol-message"],
+  "phases": [
+    { "id":"p1","title":"战略定位","description":"确定目标市场、差异化和价值主张，明确核心问题与商业机会的对应关系。","skills":["positioning-workshop","product-strategy-session","problem-statement"],"guidance":"引导用户完成定位工作坊：谁是你的客户？提供什么独特价值？与竞品的本质区别是什么？" },
+    { "id":"p2","title":"市场规模与机会","description":"量化 TAM/SAM/SOM，分析宏观趋势对市场的影响。","skills":["tam-sam-som-calculator","pestel-analysis","company-intel"],"guidance":"帮助用户用自顶向下和自底向上两种方式估算市场规模，结合 PESTEL 宏观趋势校准。" },
+    { "id":"p3","title":"商业模式设计","description":"定义商业模式核心推荐逻辑，规划功能和增长路径。","skills":["recommendation-canvas","feature-investment-advisor","organic-growth-advisor"],"guidance":"引导用户完成推荐画布：为什么用户选你？功能投资优先级？有机增长从哪里来？" },
+    { "id":"p4","title":"财务计划","description":"制定定价模型、收入预测和单位经济模型。","skills":["finance-based-pricing-advisor","saas-economics-efficiency-metrics","saas-revenue-growth-metrics","finance-metrics-quickref"],"guidance":"帮助用户建模定价 tier、ARPU 预测、LTV/CAC 分析、回收期和增长率。" },
+    { "id":"p5","title":"投资方向","description":"确定投资优先级矩阵和可验证的 Epic 假设。","skills":["feature-investment-advisor","epic-hypothesis","prioritization-advisor"],"guidance":"用投资优先级矩阵（战略价值 × 实施复杂度）排序，选择评估框架，转化为 Epic 假设。" },
+    { "id":"p6","title":"风险评估","description":"10 维度风险扫描，为高优先级风险选择验证方法。","skills":["derisk-measurement-advisor","pol-probe-advisor","business-health-diagnostic"],"guidance":"扫描 DUFV+PESTEL 10 维度，建立风险登记册，为高优先级风险选择验证探针。" },
+    { "id":"p7","title":"报告整合","description":"将战略决策转化为分阶段路线图和完整报告。","skills":["roadmap-planning","storyboard","press-release","eol-message"],"guidance":"整合所有阶段输出，生成包含战略定位、市场测算、商业模式、财务预测、投资矩阵和风险登记册的完整商业报告。" }
+  ],
+  "outputs": ["战略定位声明","TAM/SAM/SOM 测算","商业模式画布","财务预测模型","投资优先级矩阵","分阶段路线图"],
+  "estimatedTime": "40-60 min",
+  "triggerScenarios": ["我需要一份商业分析报告","帮我做产品的商业计划和财务模型"]
+}

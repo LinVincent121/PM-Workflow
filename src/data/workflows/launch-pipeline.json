@@ -1,0 +1,19 @@
+{
+  "id": "launch-pipeline",
+  "name": "产品发布全流程",
+  "emoji": "🚀",
+  "shortDesc": "从上市前情报收集到发布后复盘，6阶段完整发布 pipeline",
+  "description": "上市前情报收集、定位与信息准备、干系人对齐、发布执行、发布后复盘、完整发布报告。",
+  "skills": ["company-research","pestel-analysis","positioning-statement","press-release","stakeholder-identification","stakeholder-mapping","stakeholder-engagement-advisor","eol-message","organic-growth-advisor","business-health-diagnostic","derisk-measurement-advisor"],
+  "phases": [
+    { "id":"p1","title":"上市前情报","description":"竞品在做什么类似发布？宏观环境有没有风险？","skills":["company-research","pestel-analysis"],"guidance":"对主要竞品做公司研究，扫描PESTEL宏观风险。" },
+    { "id":"p2","title":"定位与信息","description":"一句话定位和逆向新闻稿(Amazon PR/FAQ风格)。","skills":["positioning-statement","press-release"],"guidance":"写定位声明，用逆向工作法写发布新闻稿。" },
+    { "id":"p3","title":"干系人对齐","description":"识别谁需要被说服，绘制权力/利益矩阵，制定沟通策略。","skills":["stakeholder-identification","stakeholder-mapping","stakeholder-engagement-advisor"],"guidance":"列出所有干系人，映射权力利益，制定沟通计划。" },
+    { "id":"p4","title":"发布执行","description":"端对端消息策略和有机增长计划。","skills":["eol-message","organic-growth-advisor"],"guidance":"设计发布消息时间线，规划有机增长渠道和策略。" },
+    { "id":"p5","title":"发布后复盘","description":"业务健康检查，度量指标验证。","skills":["business-health-diagnostic","derisk-measurement-advisor"],"guidance":"发布后检视业务指标，建立持续监控仪表板。" },
+    { "id":"p6","title":"📋 完整发布报告","description":"整合全部5个阶段的产出，生成一份完整的发布终稿报告，可直接用于干系人汇报和存档。","skills":["business-health-diagnostic","derisk-measurement-advisor","company-research","pestel-analysis","positioning-statement","press-release","stakeholder-identification","stakeholder-mapping","stakeholder-engagement-advisor","eol-message","organic-growth-advisor"],"guidance":"✅ 所有阶段完成。现在整合全流程产出，生成一份完整的发布终稿报告。报告必须包含以下完整章节，每章均为详细内容而非摘要：\n\n1. **发布概览**：发布名称、版本号、发布日期、核心发布内容一句话总结\n2. **上市前情报汇总**：竞品动态分析、PESTEL 宏观风险评估、市场窗口判断\n3. **Go/No-Go 决策记录**：Go/No-Go 检查项逐条结果、最终决策、决策依据、审批人签字\n4. **定位与核心信息**：最终定位声明、逆向新闻稿（Amazon PR/FAQ 格式）、关键信息层级（电梯演讲→一句话→三段式）\n5. **发布执行时间线**：从预热到发布日到后续跟进的完整时间线，标注每个时间节点的渠道、消息、负责人\n6. **发布 Checklist 完成情况**：逐项列出所有检查项及其完成状态（已完成/进行中/未开始/阻塞）\n7. **干系人管理总结**：干系人权力/利益矩阵终版、沟通记录摘要、关键反馈及处理结果\n8. **有机增长计划**：各渠道策略详情、内容日历、预期 KPI\n9. **指标仪表板规格**：监控仪表板设计（核心指标、数据源、刷新频率、告警阈值）、发布后 24h/7d/30d 观测计划\n10. **经验教训总结**：What went well / What went wrong / What to do differently next time\n\n生成的内容必须具体、可执行，包含实际决策记录、具体时间点和数据指标，而非泛泛而谈。最终输出为可直接用于发布复盘会和存档的完整报告。" }
+  ],
+  "outputs": ["Go-To-Market文档","干系人沟通计划","发布消息策略","发布后复盘框架"],
+  "estimatedTime": "25-35 min",
+  "triggerScenarios": ["我们要发布新功能","帮我做产品上线全流程规划"]
+}
