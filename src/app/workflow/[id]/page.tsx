@@ -338,7 +338,7 @@ export default function WorkflowChatPage() {
                 maxHeight: 160, overflowY: 'auto',
               }}
             />
-            <button onClick={handleSend} disabled={sending || !input.trim()}
+            <button onClick={() => handleSend()} disabled={sending || !input.trim()}
               style={{ padding: '10px 20px', height: 40, background: sending || !input.trim() ? '#e0ddda' : 'var(--accent)', color: 'white', border: 'none', borderRadius: 10, fontSize: '0.9rem', fontWeight: 500, cursor: sending || !input.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
             >
               发送

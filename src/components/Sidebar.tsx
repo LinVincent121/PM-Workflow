@@ -68,11 +68,11 @@ export default function Sidebar() {
 
   useEffect(() => {
     loadSessions();
-    const timer = setInterval(loadSessions, 3000); // poll every 3s for status updates
+    const timer = setInterval(loadSessions, 3000);
     return () => clearInterval(timer);
   }, [loadSessions]);
 
-  // Close rename on outside click — only set up when renaming is active
+  // Only attach outside-click listener when renaming is active
   useEffect(() => {
     if (!renamingId) return;
     function handleClick() { setRenamingId(null); }
@@ -105,7 +105,6 @@ export default function Sidebar() {
   }
 
   function handleClickSession(s: SessionItem) {
-    // Mark as read when clicking into it
     if (s.status === 'unread') {
       fetch('/api/sessions/mark-read', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessionId:s.sessionId}) }).catch(() => {});
     }
@@ -203,7 +202,6 @@ export default function Sidebar() {
                       )}
                     </button>
                   )}
-                  {/* Delete button on hover */}
                   {!collapsed && hoverId === s.sessionId && renamingId !== s.sessionId && s.status !== 'streaming' && (
                     <div style={{ position:'absolute', right:6, top:'50%', transform:'translateY(-50%)', display:'flex', gap:2 }}>
                       <button onClick={e=>{e.stopPropagation();startRename(s);}}
@@ -241,7 +239,7 @@ export default function Sidebar() {
   );
 }
 
-function SidebarLink({ href, icon, label, collapsed, active }: { href:string; icon:string; label:string; collapsed:boolean; active?:boolean }) {
+const SidebarLink = memo(function SidebarLink({ href, icon, label, collapsed, active }: { href:string; icon:string; label:string; collapsed:boolean; active?:boolean }) {
   if (href === '#') {
     return (
       <button style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:7, border:'none', background:'transparent', cursor:'default', fontSize:'0.85rem', width:'100%', textAlign:'left' as const, color:'var(--ink-faint)', justifyContent: collapsed?'center':'flex-start', opacity:0.5 }}>
@@ -261,4 +259,4 @@ function SidebarLink({ href, icon, label, collapsed, active }: { href:string; ic
       {!collapsed && <span style={{whiteSpace:'nowrap'}}>{label}</span>}
     </Link>
   );
-}
+});
