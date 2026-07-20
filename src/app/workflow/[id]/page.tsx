@@ -28,6 +28,7 @@ export default function WorkflowChatPage() {
   const [phasePopover, setPhasePopover] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorContent, setEditorContent] = useState('');
+  const [pendingRevise, setPendingRevise] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -102,15 +103,25 @@ export default function WorkflowChatPage() {
     el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   }, [input]);
 
+  // ── Handle pending revise request from editor ──
+  useEffect(() => {
+    if (pendingRevise) {
+      handleSend(pendingRevise);
+      setPendingRevise(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingRevise]);
+
   // ── Send with SSE streaming ──
-  async function handleSend() {
-    if (!input.trim() || sending) return;
+  async function handleSend(overrideMessage?: string) {
+    const msgText = overrideMessage || input.trim();
+    if (!msgText || sending) return;
     setSending(true);
     setError(null);
 
-    const userMsg: Message = { role: 'user', content: input.trim() };
+    const userMsg: Message = { role: 'user', content: msgText };
     setMessages(prev => [...prev, userMsg]);
-    setInput('');
+    if (!overrideMessage) setInput('');
 
     const assistantIdx = messages.length + 1;
     setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
@@ -347,6 +358,7 @@ export default function WorkflowChatPage() {
             workflowId={id}
             sessionId={sessionId || ''}
             onClose={() => setEditorOpen(false)}
+            onReviseRequest={(msg) => setPendingRevise(msg)}
           />
         </div>
       )}

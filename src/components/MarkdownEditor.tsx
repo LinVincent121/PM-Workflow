@@ -19,9 +19,10 @@ interface Props {
   sessionId: string;
   onClose: () => void;
   onTitleGenerated?: (title: string) => void;
+  onReviseRequest?: (message: string) => void;
 }
 
-export default function MarkdownEditor({ initialContent, workflowId, sessionId, onClose, onTitleGenerated }: Props) {
+export default function MarkdownEditor({ initialContent, workflowId, sessionId, onClose, onTitleGenerated, onReviseRequest }: Props) {
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
@@ -35,6 +36,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   const [saved, setSaved] = useState(false);
   const [outputId, setOutputId] = useState<string | null>(null);
   const [versionCount, setVersionCount] = useState(1);
+  const [autoGeneratingTitle, setAutoGeneratingTitle] = useState(false);
 
   // Mini chat for "依据审核结果修改"
   const [miniChatOpen, setMiniChatOpen] = useState(false);
@@ -88,10 +90,9 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
     }
   }
 
-  // ── "依据审核结果修改" → mini chat ──
+  // ── "依据审核结果修改" → 发送到右侧主对话 ──
   function handleRevise() {
-    if (!reviewResult) return;
-    setMiniChatOpen(true);
+    if (!reviewResult || !onReviseRequest) return;
     const reviewText = [
       `**审查总结**：${reviewResult.summary}`,
       `**优点**：${reviewResult.strengths.join('；')}`,
@@ -99,13 +100,8 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
       `**改进建议**：${reviewResult.suggestions.join('；')}`,
       `**完整度评分**：${reviewResult.completeness}/100`,
     ].join('\n');
-    setMiniMessages([
-      { role: 'user', content: `请根据以下审查结果修改文档内容，输出修改后的完整版本：\n\n${reviewText}\n\n原始文档：\n${content.substring(0, 3000)}` },
-    ]);
-    // Auto-invoke AI
-    sendMiniMessage([
-      { role: 'user', content: `请根据以下审查结果修改文档内容，输出修改后的完整版本：\n\n${reviewText}\n\n原始文档：\n${content.substring(0, 3000)}` },
-    ]);
+    const reviseMessage = `请根据以下审查结果修改文档内容，输出修改后的完整版本：\n\n${reviewText}\n\n原始文档：\n${content.substring(0, 4000)}`;
+    onReviseRequest(reviseMessage);
   }
 
   async function sendMiniMessage(msgs?: MiniMessage[]) {
@@ -209,9 +205,24 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
     }
   }
 
-  function openSaveDialog() {
-    setSaveTitle(saveTitle || '');
+  async function openSaveDialog() {
     setShowSaveDialog(true);
+    // Auto-generate title if we don't have one yet
+    if (!outputId && content.trim()) {
+      setAutoGeneratingTitle(true);
+      try {
+        const res = await fetch('/api/outputs/generate-title', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: content.substring(0, 2000) }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.title) setSaveTitle(data.title);
+        }
+      } catch { /* ignore */ }
+      setAutoGeneratingTitle(false);
+    }
   }
 
   return (
@@ -365,7 +376,9 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
             <div style={{ marginBottom: 14 }}>
               <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 500, marginBottom: 4, color: 'var(--ink-muted)' }}>标题</label>
               <input value={saveTitle} onChange={e => setSaveTitle(e.target.value)}
-                placeholder="6-10字标题" maxLength={32}
+                placeholder={autoGeneratingTitle ? 'AI 正在生成标题…' : '6-15字标题'}
+                maxLength={32}
+                disabled={autoGeneratingTitle}
                 style={{ width: '100%', padding: '8px 12px', border: '1px solid var(--border)', borderRadius: 8, fontSize: '0.9rem', outline: 'none' }} />
             </div>
             <div style={{ marginBottom: 20 }}>

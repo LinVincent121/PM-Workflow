@@ -13,6 +13,15 @@ interface OutputItem {
   content: string;
   createdAt: string;
   updatedAt: string;
+  versions?: VersionItem[];
+}
+
+interface VersionItem {
+  versionId: string;
+  content: string;
+  version: string;
+  title: string;
+  createdAt: string;
 }
 
 const WF_NAMES: Record<string, string> = {
@@ -48,14 +57,19 @@ export default function OutputsPage() {
   const [loading, setLoading] = useState(true);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [expandedVersions, setExpandedVersions] = useState<VersionItem[]>([]);
+  const [previewVersion, setPreviewVersion] = useState<VersionItem | null>(null);
 
-  useEffect(() => {
+  function loadOutputs() {
     fetch('/api/outputs')
       .then(r => r.json())
       .then(data => setOutputs(Array.isArray(data) ? data : []))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { loadOutputs(); }, []);
 
   function handleDelete(outputId: string) {
     if (!confirm('确定删除此产出？')) return;
@@ -64,8 +78,21 @@ export default function OutputsPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ outputId }),
     })
-      .then(() => setOutputs(prev => prev.filter(o => o.outputId !== outputId)))
+      .then(() => loadOutputs())
       .catch(() => {});
+  }
+
+  function toggleVersions(outputId: string) {
+    if (expandedId === outputId) {
+      setExpandedId(null);
+      setExpandedVersions([]);
+      return;
+    }
+    setExpandedId(outputId);
+    fetch(`/api/outputs?outputId=${encodeURIComponent(outputId)}`)
+      .then(r => r.json())
+      .then(data => setExpandedVersions(data.versions || []))
+      .catch(() => setExpandedVersions([]));
   }
 
   function startRename(o: OutputItem) {
@@ -116,6 +143,7 @@ export default function OutputsPage() {
         )}
 
         {!loading && outputs.length > 0 && (
+          <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
             {outputs.map(o => (
               <div key={o.outputId} className="card-hover"
@@ -160,6 +188,48 @@ export default function OutputsPage() {
                   {o.content.substring(0, 120)}…
                 </div>
 
+                {/* Version history toggle */}
+                <div style={{ marginTop: 4 }}>
+                  <button onClick={() => toggleVersions(o.outputId)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.72rem', color: 'var(--accent)', padding: 0, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                    {expandedId === o.outputId ? '收起版本历史 ▴' : `查看历史版本`}
+                  </button>
+                </div>
+
+                {/* Version history list */}
+                {expandedId === o.outputId && (
+                  <div style={{ marginTop: 6, borderTop: '1px solid var(--border)', paddingTop: 8 }}>
+                    {expandedVersions.length === 0 ? (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--ink-faint)' }}>加载中…</div>
+                    ) : (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, maxHeight: 160, overflowY: 'auto' }}>
+                        {expandedVersions.map((v, vi) => (
+                          <div key={v.versionId} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '4px 8px', borderRadius: 6, fontSize: '0.72rem',
+                            background: vi === 0 ? 'var(--paper-warm)' : 'transparent',
+                          }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <span style={{ fontWeight: 600, color: 'var(--accent)' }}>{v.version}</span>
+                              <span style={{ color: 'var(--ink-muted)' }}>{v.title}</span>
+                              {vi === 0 && <span style={{ fontSize: '0.6rem', color: 'var(--green-text)', background: 'var(--green-bg)', padding: '0 4px', borderRadius: 3 }}>最新</span>}
+                            </div>
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <span style={{ color: 'var(--ink-faint)', fontSize: '0.65rem' }}>
+                                {timeAgo(v.createdAt)}
+                              </span>
+                              <button onClick={() => setPreviewVersion(v)}
+                                style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 4, padding: '1px 6px', fontSize: '0.65rem', cursor: 'pointer', color: 'var(--ink-muted)' }}>
+                                查看
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Time */}
                 <div style={{ fontSize: '0.7rem', color: 'var(--ink-faint)', display: 'flex', justifyContent: 'space-between', marginTop: 'auto' }}>
                   <span>最后编辑 {timeAgo(o.updatedAt)}</span>
@@ -170,6 +240,33 @@ export default function OutputsPage() {
                 </div>
               </div>
             ))}
+          </div>
+          </>
+        )}
+
+        {/* Version Preview Modal */}
+        {previewVersion && (
+          <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.35)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => setPreviewVersion(null)}>
+            <div className="modal-content" style={{ background: 'white', borderRadius: 14, maxWidth: 700, width: '90%', maxHeight: '80vh', overflow: 'auto', padding: '24px 28px', boxShadow: '0 24px 64px rgba(0,0,0,0.15)' }}
+              onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                <div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent)', background: 'var(--paper-warm)', padding: '2px 10px', borderRadius: 4 }}>
+                    {previewVersion.version}
+                  </span>
+                  <span style={{ marginLeft: 10, fontWeight: 600, fontSize: '1rem' }}>{previewVersion.title}</span>
+                </div>
+                <button onClick={() => setPreviewVersion(null)}
+                  style={{ background: 'none', border: 'none', fontSize: '1.2rem', cursor: 'pointer', color: 'var(--ink-faint)' }}>✕</button>
+              </div>
+              <div style={{ fontSize: '0.7rem', color: 'var(--ink-faint)', marginBottom: 12 }}>
+                保存于 {new Date(previewVersion.createdAt).toLocaleString('zh-CN')}
+              </div>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: '16px 20px', background: 'var(--paper)', maxHeight: '50vh', overflow: 'auto' }}>
+                <div style={{ fontSize: '0.85rem', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{previewVersion.content}</div>
+              </div>
+            </div>
           </div>
         )}
       </div>
