@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -72,12 +72,13 @@ export default function Sidebar() {
     return () => clearInterval(timer);
   }, [loadSessions]);
 
-  // Close rename on outside click
+  // Close rename on outside click — only set up when renaming is active
   useEffect(() => {
+    if (!renamingId) return;
     function handleClick() { setRenamingId(null); }
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
+  }, [renamingId]);
 
   const isHome = pathname === '/';
   const isWorkflow = pathname === '/workflow';
@@ -111,7 +112,7 @@ export default function Sidebar() {
     router.push(`/workflow/${s.workflowId}?sid=${s.sessionId}`);
   }
 
-  const grouped = groupSessions(sessions);
+  const grouped = useMemo(() => groupSessions(sessions), [sessions]);
 
   return (
     <aside ref={sidebarRef} style={{
@@ -121,7 +122,7 @@ export default function Sidebar() {
       overflow:'hidden', userSelect:'none',
     }}>
       <div style={{ padding:'14px 18px', display:'flex', alignItems:'center', justifyContent: collapsed?'center':'space-between', borderBottom:'1px solid var(--border)' }}>
-        {!collapsed && <span style={{ fontWeight:700, fontSize:'0.9rem', whiteSpace:'nowrap' }}>PM Assistant</span>}
+        {!collapsed && <span style={{ fontWeight:700, fontSize:'0.9rem', whiteSpace:'nowrap' }}>PM工作助手</span>}
         <button onClick={()=>setCollapsed(!collapsed)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'1rem', color:'var(--ink-muted)', padding:0 }}>
           {collapsed ? '☰' : '✕'}
         </button>
@@ -131,10 +132,8 @@ export default function Sidebar() {
         <SidebarLink href="/"         icon="＋" label="新建任务" collapsed={collapsed} active={isHome} />
         <SidebarLink href="/workflow" icon="⚡" label="工作流"   collapsed={collapsed} active={isWorkflow} />
         <SidebarLink href="#"         icon="📚" label="知识库"   collapsed={collapsed} />
-        <SidebarLink href="/skills"   icon="🔧" label="Skills管理" collapsed={collapsed} active={isSkills} />
-      </nav>
-      <nav style={{ padding:'0px 10px 12px', display:'flex', flexDirection:'column', gap:2 }}>
         <SidebarLink href="/outputs"  icon="📤" label="工作产出" collapsed={collapsed} active={isOutputs} />
+        <SidebarLink href="/skills"   icon="🔧" label="Skills"   collapsed={collapsed} active={isSkills} />
       </nav>
 
       <div style={{ padding:'6px 10px', marginTop:8, flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
