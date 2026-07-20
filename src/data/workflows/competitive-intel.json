@@ -1,0 +1,20 @@
+{
+  "id": "competitive-intel",
+  "name": "竞品分析报告",
+  "emoji": "🔍",
+  "shortDesc": "7维度深度竞品分析：识别、功能对比、市场分析、商业模式、用户感知、风险机会、报告整合",
+  "description": "以上一阶段完善后的产品想法为输入，进行竞品识别、产品功能对比、市场行业分析、商业模式分析、用户感知、风险机会和报告整合7个维度的深度分析。",
+  "skills": ["company-research","stakeholder-identification","positioning-statement","problem-statement","user-story-mapping","pestel-analysis","tam-sam-som-calculator","saas-revenue-growth-metrics","finance-based-pricing-advisor","feature-investment-advisor","saas-economics-efficiency-metrics","customer-journey-map","customer-journey-mapping-workshop","proto-persona","discovery-interview-prep","opportunity-solution-tree","derisk-measurement-advisor","pol-probe","storyboard","press-release","eol-message"],
+  "phases": [
+    { "id":"p1","title":"竞品识别与分类","description":"对主要竞品进行深度研究，提取高管引述、产品战略和组织背景。","skills":["company-research","stakeholder-identification"],"guidance":"问用户目标市场/行业，推荐 3-5 个主要竞品，逐一进行 company-research 深度研究。" },
+    { "id":"p2","title":"产品功能对比","description":"横向对比各竞品的定位、问题定义和功能覆盖范围。","skills":["positioning-statement","problem-statement","user-story-mapping"],"guidance":"为每个竞品写一句定位声明，列出核心功能，用故事地图可视化功能覆盖对比。" },
+    { "id":"p3","title":"市场与行业分析","description":"宏观环境对各竞品的影响、细分市场规模分析。","skills":["pestel-analysis","tam-sam-som-calculator","saas-revenue-growth-metrics"],"guidance":"引导用户分析 PESTEL 对行业的影响，计算各竞品的 TAM/SAM/SOM。" },
+    { "id":"p4","title":"商业模式与定价","description":"竞品定价策略、功能投资方向和单位经济性分析。","skills":["finance-based-pricing-advisor","feature-investment-advisor","saas-economics-efficiency-metrics"],"guidance":"逐一分析竞品定价 tier、ARPU、功能投资优先级和 LTV/CAC 效率。" },
+    { "id":"p5","title":"用户与市场感知","description":"对比用户旅程差异，设计验证调研问题。","skills":["customer-journey-map","customer-journey-mapping-workshop","proto-persona","discovery-interview-prep"],"guidance":"对比竞品的用户旅程与自己产品的差异点，设计调研问题验证竞品口碑。" },
+    { "id":"p6","title":"风险与机会","description":"从竞品分析中提炼机会点、评估威胁优先级。","skills":["opportunity-solution-tree","derisk-measurement-advisor","pol-probe"],"guidance":"用 OST 展开机会方案，扫描竞品带来的风险维度，标记 Act Now / Watch。" },
+    { "id":"p7","title":"报告整合","description":"将分析结果整理为结构化竞品报告。","skills":["storyboard","press-release","eol-message"],"guidance":"整合所有阶段输出，生成包含竞品画像矩阵、功能对比表、定价分析、机会地图和行动建议的完整报告。" }
+  ],
+  "outputs": ["竞品画像矩阵","功能对比表","定价策略分析","市场机会地图","差异化叙事"],
+  "estimatedTime": "30-45 min",
+  "triggerScenarios": ["我需要一份竞品分析报告","帮我分析主要竞争对手"]
+}

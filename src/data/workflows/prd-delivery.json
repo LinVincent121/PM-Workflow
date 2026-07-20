@@ -1,0 +1,22 @@
+{
+  "id": "prd-delivery",
+  "name": "PRD 与交付",
+  "emoji": "📝",
+  "shortDesc": "9 阶段 PRD 编写：整合上游产出生成工程就绪的产品需求文档",
+  "description": "以上游产出（产品想法、竞品分析、商业报告）为输入，完成 Executive Summary、Problem Statement、Personas、Strategic Context、Solution、Metrics、User Stories、Out of Scope、PRD 终稿整合 9 个阶段。",
+  "skills": ["problem-statement","problem-framing-canvas","customer-journey-map","proto-persona","jobs-to-be-done","lean-ux-canvas","user-story-mapping","storyboard","epic-hypothesis","epic-breakdown-advisor","user-story","user-story-splitting","incoming-request-advisor","derisk-measurement-advisor","pestel-analysis"],
+  "phases": [
+    { "id":"p1","title":"Executive Summary","description":"写一段概述：为[谁]构建[什么]来解决[什么问题]，产生[什么影响]。","skills":["problem-statement"],"guidance":"帮助用户一句话概括整个 PRD：解决方案 + 目标用户 + 核心问题 + 预期影响。" },
+    { "id":"p2","title":"Problem Statement","description":"结构化问题陈述：谁有问题、是什么问题、为什么痛苦、有什么证据。","skills":["problem-statement","problem-framing-canvas","customer-journey-map"],"guidance":"引导回答4个问题：谁？什么？为什么痛？证据是什么？引用数据、客户引述、调研发现。" },
+    { "id":"p3","title":"Target Users & Personas","description":"定义核心用户画像和待完成任务。","skills":["proto-persona","jobs-to-be-done"],"guidance":"帮助建立 1 个 primary persona + 1-2 个 secondary persona，写出 JTBD。" },
+    { "id":"p4","title":"Strategic Context","description":"链接商业目标、市场规模、竞品环境和Why Now。","skills":["problem-statement"],"guidance":"引用商业报告和竞品分析数据：OKR 对齐、TAM/SAM/SOM、竞品对比、为什么现在是正确的时机。" },
+    { "id":"p5","title":"Solution Overview","description":"高层面描述解决方案，配 UX 假设和故事板。","skills":["lean-ux-canvas","user-story-mapping","storyboard"],"guidance":"描述解决方案如何运作（2-3段），附上 Lean UX 画布和故事地图。" },
+    { "id":"p6","title":"Success Metrics","description":"定义 primary metric、secondary metrics 和 guardrail metrics。","skills":["derisk-measurement-advisor"],"guidance":"确定一个核心指标、2-3个辅助指标和2-3个护卫指标，标注 current → target。" },
+    { "id":"p7","title":"User Stories & Requirements","description":"编写 Epic 假设、拆分为用户故事、写验收标准。","skills":["epic-hypothesis","epic-breakdown-advisor","user-story","user-story-splitting"],"guidance":"先写 Epic 假设声明，然后用 Richard Lawrence 9 种模式拆分为 User Stories，每个故事配 Given-When-Then 验收标准。" },
+    { "id":"p8","title":"Out of Scope & Dependencies","description":"明确不做什么、依赖什么、有什么风险和未解问题。","skills":["incoming-request-advisor","pestel-analysis"],"guidance":"列出 Out of Scope 事项及原因，标注依赖项、风险和未解问题。使用 incoming-request-advisor 过滤 scope creep。" },
+    { "id":"p9","title":"📄 PRD 终稿整合","description":"整合前8个阶段的全部产出，生成一份完整、详细、可直接交付的 PRD 文档。","skills":["problem-statement","proto-persona","jobs-to-be-done","lean-ux-canvas","user-story-mapping","epic-hypothesis","epic-breakdown-advisor","user-story","user-story-splitting","incoming-request-advisor","derisk-measurement-advisor","pestel-analysis"],"guidance":"✅ 所有阶段完成。现在整合前8个阶段的全部产出，生成一份完整的 PRD 终稿文档。文档必须包含以下完整章节，每章均为详细内容而非摘要：\n\n1. **文档元信息**：文档版本、作者、日期、状态、审批人\n2. **Executive Summary**：一句话概述 + 扩展段落（背景、方案、影响）\n3. **Problem Statement**：完整问题陈述（谁、什么问题、为什么痛、证据与数据支撑）\n4. **Target Users & Personas**：1个 Primary Persona（含画像卡片） + 1-2个 Secondary Persona + JTBD 详细描述\n5. **Strategic Context**：OKR 对齐、TAM/SAM/SOM 数据、竞品对比表、Why Now 论述\n6. **Solution Overview**：解决方案详细描述、Lean UX 画布、故事地图、用户流程\n7. **Success Metrics**：Primary Metric + Secondary Metrics + Guardrail Metrics，每项标注 current → target 及测量方法\n8. **User Stories & Requirements**：Epic 假设声明、完整 User Story 列表（含 Given-When-Then 验收标准）、优先级标注\n9. **Out of Scope & Dependencies**：明确排除项及原因、依赖项清单、风险评估矩阵、未解问题列表\n10. **附录**：术语表、参考文档链接、变更记录\n\n生成的内容必须具体、可操作，包含场景细节、数据引用和具体示例，而非笼统描述。最终输出为可直接用于团队评审和工程启动的完整 PRD。" }
+  ],
+  "outputs": ["完整 PRD 文档","用户故事列表+验收标准","Out of Scope 清单","依赖与风险评估"],
+  "estimatedTime": "60-120 min",
+  "triggerScenarios": ["帮我写一份 PRD","我需要一份产品需求文档"]
+}

@@ -1,0 +1,19 @@
+{
+  "id": "prioritization",
+  "name": "需求排布",
+  "emoji": "🎯",
+  "shortDesc": "6 维度需求管理：框架选择→流入治理→财务评估→Epic拆解→风险扫描→路线图输出",
+  "description": "从框架选择到路线图输出，综合优先级排序、需求流入管理、财务影响评估、Epic 拆解、风险扫描 5 个维度的完整需求管理流程。",
+  "skills": ["prioritization-advisor","incoming-request-advisor","finance-based-pricing-advisor","saas-economics-efficiency-metrics","feature-investment-advisor","epic-hypothesis","epic-breakdown-advisor","user-story-splitting","derisk-measurement-advisor","pol-probe-advisor","pol-probe","roadmap-planning","user-story-mapping","recommendation-canvas"],
+  "phases": [
+    { "id":"p1","title":"框架选择","description":"根据产品阶段、团队规模和数据可用性，推荐最适合的优先级框架。","skills":["prioritization-advisor"],"guidance":"问4个问题：产品阶段？团队规模？主要挑战？数据可用性？然后推荐 RICE/ICE/Value-Effort/Kano。" },
+    { "id":"p2","title":"需求流入治理","description":"对每个新需求解码：区分表面诉求和真实 JTBD，读取发件人权力和利益。","skills":["incoming-request-advisor"],"guidance":"让用户粘贴需求原文，帮其解码为12段分析报告：分类、发件人、表面诉求、底层 JTBD、情感、Must-Haves、Success Criteria 等。" },
+    { "id":"p3","title":"财务与定价影响","description":"评估高优先级需求对定价、收入、单位经济性的影响。","skills":["finance-based-pricing-advisor","saas-economics-efficiency-metrics","feature-investment-advisor"],"guidance":"对 Top 需求逐一评估：对 ARPU 的影响？对 LTV/CAC 的影响？ROI 是否合理？" },
+    { "id":"p4","title":"Epic 拆解与故事拆分","description":"使用 Richard Lawrence 9 种拆分模式将 Epic 拆为可交付的 User Stories。","skills":["epic-hypothesis","epic-breakdown-advisor","user-story-splitting"],"guidance":"对 Top N 需求写 Epic 假设，用 9 种拆分模式逐一拆分，每个故事确保 INVEST 和 ≤5 天。" },
+    { "id":"p5","title":"风险降低与验证","description":"对 Top 需求做 10 维度风险扫描，为最高风险选择验证探针。","skills":["derisk-measurement-advisor","pol-probe-advisor","pol-probe"],"guidance":"扫描 Top N 需求的 10 维度风险（DUFV+PESTEL），标记 Act Now / Start Tracking，为 Act Now 风险设计验证探针。" },
+    { "id":"p6","title":"排布输出与完整优先级报告","description":"整合前5个阶段全部产出，生成完整优先级报告：Now-Next-Later路线图、故事地图、Effort/Value矩阵、干系人建议、依赖地图。","skills":["roadmap-planning","user-story-mapping","recommendation-canvas","prioritization-advisor","incoming-request-advisor","finance-based-pricing-advisor","saas-economics-efficiency-metrics","feature-investment-advisor","epic-hypothesis","epic-breakdown-advisor","user-story-splitting","derisk-measurement-advisor","pol-probe-advisor","pol-probe"],"guidance":"✅ 所有阶段完成。现在整合前5个阶段全部产出，生成一份完整的优先级报告。报告必须包含以下完整章节，每章均为详细内容而非摘要：\n\n1. **执行摘要**：团队当前核心目标一句话、Top 3 优先事项、资源概况（团队人数/可用人天）、整体建议\n2. **完整优先级排序表**：\n   - 所有需求的排序结果（含框架打分：RICE/ICE/Value-Effort 等详细分值）\n   - 每个需求的 12 段解码分析摘要（分类、发件人、表面诉求、底层 JTBD 等）\n   - 标注推荐/备选/否决三分法\n3. **Now-Next-Later 路线图**：\n   - **Now（本季度）**：具体 Story 列表，每个标注负责人、估算人天、依赖项、验收标准\n   - **Next（下季度）**：候选 Story 列表，标注排入条件和触发事件\n   - **Later（远期）**：暂缓事项及暂缓原因\n   - 每个时段标注团队容量和资源分配\n4. **故事地图 (Story Map)**：\n   - 按用户活动（Activities）→ 用户任务（Tasks）→ 用户故事（Stories）三级展开\n   - 标注 MVP 切片线和 Release 1/Release 2 分界线\n   - 每个 Story 标注优先级（MoSCoW）和估算\n5. **Effort/Value 矩阵**：\n   - 可视化四象限（Quick Wins / Big Bets / Fill-ins / Time Sinks）\n   - 每个需求在矩阵中的位置及落入该象限的分析\n   - 推荐的资源分配比例（如 Quick Wins 30%、Big Bets 50%）\n6. **财务影响总览**：\n   - 每个高优先级需求对 ARPU、LTV/CAC、收入的影响估算\n   - ROI 排序表\n   - 放弃成本（Cost of Delay）分析\n7. **风险评估**：\n   - Top 需求的 10 维度风险扫描结果（DUFV+PESTEL）\n   - Act Now / Start Tracking 分级\n   - 高风险的验证探针设计和缓解措施\n8. **依赖地图 (Dependency Map)**：\n   - 需求间依赖关系可视化（哪些需求互相阻塞或依赖）\n   - 外部依赖清单（其他团队、第三方、基础设施）\n   - 关键路径分析\n9. **干系人对齐建议**：\n   - 每个高优先级需求的关键干系人\n   - 向不同干系人（高管/工程/设计/业务）汇报的建议角度和核心论点\n   - 潜在反对意见及应对策略\n10. **下一步行动**：立即启动的具体 Action Items（3-5条，每条有负责人和截止日期）、建议的下次复盘时间点\n\n生成的内容必须包含具体的打分数据、真实估算和可操作的路线图，而非抽象框架。最终输出为可直接用于团队 Planning Meeting 和干系人汇报的完整优先级报告。" }
+  ],
+  "outputs": ["优先级排序表(RICE等)","需求解码报告","财务影响评估","Epic 拆解清单","风险登记册","分阶段路线图"],
+  "estimatedTime": "30-45 min",
+  "triggerScenarios": ["帮我排优先级","需求太多资源不够","帮我管理产品 backlog"]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "activation-loop",
+  "name": "新用户激活优化",
+  "emoji": "👤",
+  "shortDesc": "旅程映射→数据诊断→假设生成→方案设计→实验设计，5阶段激活优化闭环",
+  "description": "从新用户旅程映射出发，结合数据诊断、假设生成、方案设计和实验设计，系统性地提升用户激活率。",
+  "skills": ["customer-journey-map","jobs-to-be-done","saas-revenue-growth-metrics","finance-metrics-quickref","opportunity-solution-tree","pol-probe-advisor","lean-ux-canvas","proto-persona","user-story","discovery-interview-prep","discovery-process"],
+  "phases": [
+    { "id":"p1","title":"旅程映射","description":"绘制新用户完整旅程，理解注册时的JTBD。","skills":["customer-journey-map","jobs-to-be-done"],"guidance":"绘制从注册到激活的完整旅程地图，标注每个触点的情绪和断点，深挖新用户的JTBD。" },
+    { "id":"p2","title":"数据诊断","description":"量化激活漏斗，分析LTV/CAC影响。","skills":["saas-revenue-growth-metrics","finance-metrics-quickref"],"guidance":"用数据分析激活漏斗各步骤转化率，计算流失对 LTV/CAC 的财务影响。" },
+    { "id":"p3","title":"假设生成","description":"从降低流失出发展开所有可能方案，标注承诺级别。","skills":["opportunity-solution-tree","pol-probe-advisor"],"guidance":"用 OST 展开激活优化方案树，为每个方案标注承诺级别（高/中/低）。" },
+    { "id":"p4","title":"方案设计","description":"快速原型 UX、细分流失用户画像、编写激活故事。","skills":["lean-ux-canvas","proto-persona","user-story"],"guidance":"为 Top 方案设计 Lean UX 画布，建立流失用户画像，编写激活功能 User Stories。" },
+    { "id":"p5","title":"实验设计与激活优化手册","description":"生成完整的激活优化手册：用户旅程图、摩擦分析、实验设计文档、灰度发布计划。","skills":["discovery-interview-prep","discovery-process","customer-journey-map","jobs-to-be-done","saas-revenue-growth-metrics","finance-metrics-quickref","opportunity-solution-tree","pol-probe-advisor","lean-ux-canvas","proto-persona","user-story"],"guidance":"✅ 所有阶段完成。现在整合前4个阶段全部产出，生成一份完整的激活优化手册。手册必须包含以下完整章节，每章均为详细内容而非摘要：\n\n1. **用户旅程地图 (User Journey Map)**：从注册到激活的完整旅程可视化，每个触点的用户行为、情绪曲线（标注高点和低点）、断点和摩擦点，附 JTBD 详细描述\n2. **激活漏斗分析**：完整漏斗各步骤转化率（注册→引导→Aha Moment→激活），流失热力分布，对 LTV/CAC 的财务影响量化（含具体金额或百分比）\n3. **摩擦分析 (Friction Analysis)**：Top 5 摩擦点详细分析（每个摩擦点：位置、影响用户比例、根因、严重程度评级），用 OST 展开优化方案树，每个方案标注承诺级别（高/中/低）和预期影响\n4. **实验设计文档**（对 Top 3 优化方案，每个包含）：\n   - **假设声明**：If we [change], then [metric] will [change] because [rationale]\n   - **核心指标**：Primary Metric + Secondary Metrics + Guardrail Metrics\n   - **样本量计算**：基于 MDE（最小可检测效应）、统计功效、置信水平\n   - **实验时长估算**：基于当前流量和所需样本量\n   - **实验分组设计**：对照组和实验组的详细配置\n   - **A/A 测试前置验证计划**（如适用）\n5. **用户调研计划**：Discovery Interview 访谈指南（目标用户画像、访谈大纲、关键问题列表）、用户招募策略和访谈排期\n6. **灰度发布与推广计划**：\n   - Phase 1: 内部 Dogfood（范围、时长、成功标准）\n   - Phase 2: 5% 灰度（触发条件、监控指标、回滚条件）\n   - Phase 3: 25% 灰度（条件同上）\n   - Phase 4: 50% → 100% 全量（条件同上）\n7. **成功度量与观测计划**：实验期间监控仪表板设计（指标、数据源、刷新频率）、统计显著性判定标准、长期观测计划（实验结束后 7d/30d）\n\n生成的内容必须包含具体数据（转化率、样本量、时长）、可测试的假设声明和可执行的灰度步骤，而非笼统描述。最终输出为可直接交给增长团队和工程团队执行的完整激活优化手册。" }
+  ],
+  "outputs": ["激活漏斗分析报告","用户旅程断点图","3-5个可测试激活方案","A/B实验设计文档"],
+  "estimatedTime": "30-45 min",
+  "triggerScenarios": ["新用户流失率高","帮我优化用户激活流程"]
+}

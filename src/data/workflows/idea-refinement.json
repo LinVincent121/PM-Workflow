@@ -1,0 +1,19 @@
+{
+  "id": "idea-refinement",
+  "name": "产品想法完善",
+  "emoji": "💡",
+  "shortDesc": "从粗糙想法到完整概念，通过结构化问题链逐步完善产品创意",
+  "description": "用户输入一个粗糙的产品想法，AI通过6个阶段12+引导问题，逐步完善问题定义、用户画像、价值主张、方案构想和风险约束。",
+  "skills": ["problem-statement","problem-framing-canvas","proto-persona","jobs-to-be-done","customer-journey-map","positioning-statement","recommendation-canvas","lean-ux-canvas","epic-hypothesis","derisk-measurement-advisor","pol-probe-advisor","storyboard","eol-message"],
+  "phases": [
+    { "id":"p1","title":"想法初探","description":"了解用户的产品想法，引导回答核心问题：解决了谁的什么问题？这个问题有多痛？有什么证据？","skills":["problem-statement","problem-framing-canvas"],"guidance":"先问用户描述产品想法，然后问目标用户和痛点，最后问有什么数据或证据支撑。" },
+    { "id":"p2","title":"用户深描","description":"深入定义目标用户：画像、真实动机、当前体验旅程中的断点。","skills":["proto-persona","jobs-to-be-done","customer-journey-map"],"guidance":"从上一阶段的回答出发，逐一询问用户画像、JTBD和当前旅程的问题。" },
+    { "id":"p3","title":"价值定位","description":"用一句话说清楚定位，明确为什么选这个方向而不是别的。","skills":["positioning-statement","recommendation-canvas"],"guidance":"帮助用户提炼定位公式：为[谁]解决[什么问题]，提供[什么独特价值]。然后问竞品和替代方案。" },
+    { "id":"p4","title":"方案构想","description":"勾画最小可行方案和可验证的假设。","skills":["lean-ux-canvas","epic-hypothesis"],"guidance":"引导用户描述最小可行方案的样子，然后用 Epic 假设模板将其形式化。" },
+    { "id":"p5","title":"约束与风险","description":"扫描内部4维+外部6维风险，为最高风险选择验证方法。","skills":["derisk-measurement-advisor","pol-probe-advisor"],"guidance":"逐一扫描 DUFV 和 PESTEL 维度，标记 Act Now / Watch，为 Act Now 的风险推荐验证探针。" },
+    { "id":"p6","title":"输出汇总","description":"整理完善后的想法为结构化文档和下一步建议。","skills":["storyboard","eol-message"],"guidance":"将前面所有阶段的输出整理成完整文档，包含问题陈述、用户画像、JTBD、定位、方案、风险登记册和下一步建议。" }
+  ],
+  "outputs": ["完整想法完善文档","风险登记册(Act/Watch)","验证探针计划"],
+  "estimatedTime": "15-20 min",
+  "triggerScenarios": ["我有一个产品想法但不确定是否靠谱","帮我系统地完善一个创意"]
+}

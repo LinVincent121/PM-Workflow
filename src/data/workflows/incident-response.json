@@ -1,0 +1,19 @@
+{
+  "id": "incident-response",
+  "name": "产品事故响应与恢复",
+  "emoji": "🔥",
+  "shortDesc": "紧急诊断→沟通→修复→预防，6阶段完整事故响应",
+  "description": "紧急诊断、对内对外沟通、根因修复、预防机制建立、完整事故报告与预防手册。",
+  "skills": ["business-health-diagnostic","problem-framing-canvas","problem-statement","eol-message","press-release","positioning-statement","epic-hypothesis","user-story-splitting","incoming-request-advisor","pol-probe","derisk-measurement-advisor"],
+  "phases": [
+    { "id":"p1","title":"紧急诊断","description":"量化业务健康度，快速界定问题边界。","skills":["business-health-diagnostic","problem-framing-canvas"],"guidance":"快速评估业务影响，用问题画布界定问题的范围、影响面和时间线。" },
+    { "id":"p2","title":"对内沟通","description":"用数据向内部说明发生了什么，管理降级消息。","skills":["problem-statement","eol-message"],"guidance":"写问题陈述文档（附数据和证据），设计内部降级/临时方案的消息模板。" },
+    { "id":"p3","title":"对外沟通","description":"面向用户的透明沟通和信任重建。","skills":["press-release","positioning-statement"],"guidance":"写对外沟通稿（坦诚透明），重新锚定信任的定位声明。" },
+    { "id":"p4","title":"根因修复","description":"修复方案假设声明、任务拆解和用户反馈管理。","skills":["epic-hypothesis","user-story-splitting","incoming-request-advisor"],"guidance":"写修复方案的 Epic 假设，拆分为可执行任务，用 incoming-request-advisor 管理涌入的用户反馈。" },
+    { "id":"p5","title":"预防机制","description":"评估复发概率，建立监控告警体系。","skills":["pol-probe","derisk-measurement-advisor"],"guidance":"设计验证探针评估复发概率，扫描相关风险维度，建立监控告警和预防文档。" },
+    { "id":"p6","title":"📋 完整事故报告与预防手册","description":"整合全部5个阶段的产出，生成一份完整的事故报告和预防手册，可直接用于事后复盘和组织学习。","skills":["business-health-diagnostic","problem-framing-canvas","problem-statement","eol-message","press-release","positioning-statement","epic-hypothesis","user-story-splitting","incoming-request-advisor","pol-probe","derisk-measurement-advisor"],"guidance":"✅ 所有阶段完成。现在整合全流程产出，生成一份完整的事故报告与预防手册。报告必须包含以下完整章节，每章均为详细内容而非摘要：\n\n1. **事故概览**：事故编号、严重级别（P0/P1/P2）、发生时间、发现时间、恢复时间、影响范围、责任团队\n2. **事故时间线**：精确到分钟的关键事件时间线（发现→响应→诊断→修复→恢复），每个节点标注操作人和决策\n3. **影响量化**：受影响的用户数/请求数、收入损失估算、客户投诉统计、SLA 偏离分析\n4. **根因分析**：5 Whys 分析链、直接原因与根本原因、技术根因的详细描述（含架构图/日志片段）\n5. **修复方案**：短期止血措施、长期修复方案 Epic 假设、任务拆分清单及负责人\n6. **对内对外沟通记录**：内部沟通模板和实际发送内容、对外沟通稿终版、用户反馈分析\n7. **预防手册（Prevention Playbook）**：\n   - 复发概率评估（含 pol-probe 验证探针详细设计）\n   - 新增监控告警规则（指标、阈值、通知渠道、升级路径）\n   - 相关风险维度扫描结果\n   - 预防措施清单（按优先级排列，每项含负责人和截止日期）\n8. **改进行动项**：具体可追踪的 Action Items（负责人、DDL、优先级），分为流程改进、技术改进、组织改进三类\n9. **经验教训总结**：What went well / What went wrong / Key takeaways / 建议写入 on-call 手册的内容\n\n生成的内容必须具体、可操作，包含真实的时间点、数据指标和具体任务分配，而非笼统描述。最终输出为可直接用于事故复盘会议和团队培训的完整文档。" }
+  ],
+  "outputs": ["事故响应时间线","对内/对外沟通模板","修复任务清单","预防性监控方案"],
+  "estimatedTime": "20-30 min",
+  "triggerScenarios": ["核心功能出问题","用户大量流失需要紧急应对"]
+}

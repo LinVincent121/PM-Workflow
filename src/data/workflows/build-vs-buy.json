@@ -1,0 +1,17 @@
+{
+  "id": "build-vs-buy",
+  "name": "Build vs Buy 决策",
+  "emoji": "🏗️",
+  "shortDesc": "市场扫描→财务建模→技术评估→决策输出，4阶段结构化决策框架",
+  "description": "市场扫描、财务建模、技术评估和决策输出，为自建 vs 采购提供结构化决策框架。",
+  "skills": ["tam-sam-som-calculator","company-research","finance-based-pricing-advisor","saas-economics-efficiency-metrics","feature-investment-advisor","context-engineering-advisor","agent-orchestration-advisor","prioritization-advisor","epic-hypothesis"],
+  "phases": [
+    { "id":"p1","title":"市场扫描","description":"市场规模评估和供应商扫描。","skills":["tam-sam-som-calculator","company-research"],"guidance":"估算自建vs采购的 TAM 差异，研究市面上的成熟供应商。" },
+    { "id":"p2","title":"财务建模","description":"采购成本 vs 自建成本，ROI 对比。","skills":["finance-based-pricing-advisor","saas-economics-efficiency-metrics","feature-investment-advisor"],"guidance":"建模采购的 TCO 和自建的 TCO（含人力、基础设施、维护），做 NPV 对比。" },
+    { "id":"p3","title":"技术评估","description":"技术栈兼容性、AI Agent 编排复杂度评估。","skills":["context-engineering-advisor","agent-orchestration-advisor"],"guidance":"评估与现有技术栈的兼容性、集成成本和长期维护负担。" },
+    { "id":"p4","title":"决策输出","description":"生成完整决策报告：多准则决策矩阵、成本模型、风险分析、实施路线图和应急预案。","skills":["prioritization-advisor","epic-hypothesis","tam-sam-som-calculator","company-research","finance-based-pricing-advisor","saas-economics-efficiency-metrics","feature-investment-advisor","context-engineering-advisor","agent-orchestration-advisor"],"guidance":"✅ 所有阶段完成。现在整合前3个阶段全部产出，生成一份完整的 Build vs Buy 决策报告。报告必须包含以下完整章节，每章均为详细内容而非摘要：\n\n1. **执行摘要 (Executive Summary)**：决策问题一句话定义、推荐方案、核心理由（3-5条）、预期 ROI 和风险概览\n2. **市场扫描结果**：TAM/SAM/SOM 对比（自建场景 vs 采购场景）、供应商评估矩阵（功能覆盖度、成熟度、价格、支持能力、市占率）\n3. **完整 MCDA 决策矩阵**：\n   - 评估维度至少包含：成本（TCO 3年）、上市速度、控制力/灵活性、技术风险、维护负担、战略匹配度、数据安全/合规\n   - 每个维度分配权重并说明理由\n   - 每个方案逐维度打分（1-5分）并附评分依据\n   - 加权总分及敏感性分析（权重变动±20%时结论是否改变）\n4. **财务成本模型**：\n   - 自建方案 TCO 详细拆解（人力、基础设施、工具、培训、维护，逐年分解3年）\n   - 采购方案 TCO 详细拆解（许可费、集成费、定制费、培训费，逐年分解3年）\n   - NPV 对比、ROI 计算、回本周期\n   - 隐性成本分析（切换成本、锁定风险、团队学习曲线）\n5. **风险评估**：\n   - 自建方案风险：技术实现风险、人力依赖风险、时间超期风险、与核心业务冲突风险\n   - 采购方案风险：供应商锁定风险、功能缺口风险、数据安全风险、价格变动风险\n   - 风险矩阵（概率 × 影响），标注前三高风险及缓解措施\n6. **实施里程碑**：\n   - Phase 0: 概念验证（时间、目标、成功标准）\n   - Phase 1: MVP/试点（时间、范围、验收标准）\n   - Phase 2: 全面推广（时间、范围、验收标准）\n   - 每个阶段标注关键决策点和 Go/No-Go 条件\n7. **应急预案 (Contingency Plan)**：\n   - 如果自建方案延期超过 X 个月 → 切换到采购方案的具体步骤\n   - 如果采购方案无法满足核心需求 → 自建补强的具体范围\n   - 触发条件、决策人、执行时间线\n8. **最终推荐与下一步**：明确推荐方案、关键前提假设、立即启动的 Next Steps（3-5条，每条有负责人和截止日期）\n\n生成的内容必须包含具体数字、实际供应商名称、真实成本估算和可追踪的行动项，而非空泛结论。最终输出为可直接提交给 CXO 决策会议使用的完整决策报告。" }
+  ],
+  "outputs": ["决策备忘录","成本对比表","风险评估","推荐方案+验证里程碑"],
+  "estimatedTime": "20-30 min",
+  "triggerScenarios": ["自建还是采购第三方","帮我做 Build vs Buy 决策分析"]
+}
