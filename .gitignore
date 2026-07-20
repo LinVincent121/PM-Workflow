@@ -22,3 +22,6 @@ Thumbs.db
 # Database
 data/*.db
 data/*.sqlite
+data/*.db-shm
+data/*.db-wal
+tsconfig.tsbuildinfo
