@@ -31,7 +31,8 @@ export async function POST(request: NextRequest) {
 
     return Response.json(result);
   } catch (err: any) {
-    console.error('Chat API error:', err);
+    console.error('Chat API error:', err.message);
+    if (err.cause) console.error('  cause:', err.cause);
     return Response.json({ error: err.message || '内部错误' }, { status: 500 });
   }
 }

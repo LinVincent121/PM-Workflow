@@ -2,6 +2,16 @@
 
 import type { ChatMessage, LLMConfig } from '@/types';
 
+/**
+ * Sanitize message content that might contain problematic escape sequences
+ * for JSON parsers (e.g. backslash-x sequences in raw text).
+ */
+function sanitizeContent(content: string): string {
+  // Replace literal backslash-x sequences that could be mis-parsed as hex escapes.
+  // Only escape if followed by exactly two hex digits to avoid breaking valid emoji/unicode.
+  return content.replace(/\\x([0-9a-fA-F]{2})(?![0-9a-fA-F])/g, '\\\\x$1');
+}
+
 export async function callLLM(
   config: LLMConfig,
   messages: ChatMessage[],
@@ -10,13 +20,24 @@ export async function callLLM(
   const base = config.baseUrl.replace(/\/$/, '');
   const url = `${base}/chat/completions`;
 
+  const cleanMessages = messages.map((m) => ({
+    role: m.role,
+    content: sanitizeContent(m.content),
+  }));
+
   const body: any = {
     model: config.model,
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: cleanMessages,
     temperature: 0.7,
     max_tokens: 8192,
     stream: false,
   };
+
+  const bodyJson = JSON.stringify(body);
+  // Warn but send — if the model provider chokes, it's a provider-side issue
+  if (bodyJson.length > 100_000) {
+    console.warn(`[LLM] Request body is ${bodyJson.length} chars — consider truncating context`);
+  }
 
   const res = await fetch(url, {
     method: 'POST',
@@ -24,7 +45,7 @@ export async function callLLM(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${config.apiKey}`,
     },
-    body: JSON.stringify(body),
+    body: bodyJson,
     signal: AbortSignal.timeout(120000),
   });
 
@@ -47,22 +68,29 @@ export async function* streamLLM(
   config: LLMConfig,
   messages: ChatMessage[],
 ): AsyncGenerator<string, void, unknown> {
-  // Normalize base URL: strip trailing slash, ensure /v1 if missing for known providers
   let base = config.baseUrl.replace(/\/$/, '');
-  // Auto-append /v1 for common providers that expect it
   if (!base.endsWith('/v1') && !base.includes('/v1/')) {
-    // For OpenAI-compatible APIs, default to /v1 endpoint
     base = base + '/v1';
   }
   const url = `${base}/chat/completions`;
 
+  const cleanMessages = messages.map((m) => ({
+    role: m.role,
+    content: sanitizeContent(m.content),
+  }));
+
   const body = {
     model: config.model,
-    messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    messages: cleanMessages,
     temperature: 0.7,
     max_tokens: 8192,
     stream: true,
   };
+
+  const bodyJson = JSON.stringify(body);
+  if (bodyJson.length > 100_000) {
+    console.warn(`[LLM Stream] Request body is ${bodyJson.length} chars — consider truncating context`);
+  }
 
   const res = await fetch(url, {
     method: 'POST',
@@ -70,7 +98,7 @@ export async function* streamLLM(
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${config.apiKey}`,
     },
-    body: JSON.stringify(body),
+    body: bodyJson,
     signal: AbortSignal.timeout(120000),
   });
 

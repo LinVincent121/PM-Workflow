@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'PM Work Assistant',
+  title: 'PM工作助手',
   description: '产品经理工作助手 — 10个结构化 AI 工作流',
 };
 
