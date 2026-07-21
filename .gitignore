@@ -19,6 +19,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Legacy submodule
+pm-workflow-assistant/
+
 # Database
 *.db
 *.db-shm
