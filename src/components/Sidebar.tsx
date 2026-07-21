@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
@@ -17,11 +17,11 @@ function timeLabel(ts: string): string {
   const diffMs = now.getTime() - d.getTime();
   const diffMin = Math.floor(diffMs / 60000);
   if (diffMin < 1) return '刚刚';
-  if (diffMin < 60) return `${diffMin} 分钟前`;
+  if (diffMin < 60) return `${diffMin}分钟`;
   const diffH = Math.floor(diffMin / 60);
-  if (diffH < 24) return `${diffH} 小时前`;
+  if (diffH < 24) return `${diffH}小时`;
   const diffDays = Math.floor(diffH / 24);
-  if (diffDays < 30) return `${diffDays} 天前`;
+  if (diffDays < 30) return `${diffDays}天`;
   return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
 }
 
@@ -45,12 +45,23 @@ function groupSessions(sessions: SessionItem[]) {
     else older.push(s);
   }
 
-  if (today.length) groups.push({ label: '今日', items: today });
+  if (today.length) groups.push({ label: '今天', items: today });
   if (yesterday.length) groups.push({ label: '昨天', items: yesterday });
-  if (week.length) groups.push({ label: '一周内', items: week });
-  if (older.length) groups.push({ label: '过往对话', items: older });
+  if (week.length) groups.push({ label: '本周', items: week });
+  if (older.length) groups.push({ label: '更早', items: older });
   return groups;
 }
+
+/* ═══ Inline SVG icons — clean, 18x18, stroke-based ═══ */
+const Icons = {
+  plus:      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M8 3v10M3 8h10"/></svg>,
+  workflow: <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="10" y="1" width="5" height="5" rx="1"/><rect x="1" y="10" width="5" height="5" rx="1"/><rect x="10" y="10" width="5" height="5" rx="1"/></svg>,
+  skills:    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M2 4h12M2 8h8M2 12h10"/></svg>,
+  outputs:   <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 10l-4 4-4-4"/><path d="M10 14V2"/></svg>,
+  settings:  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1.5v1.5M8 13v1.5M3.4 3.4l1.06 1.06M11.54 11.54l1.06 1.06M1.5 8H3M13 8h1.5M3.4 12.6l1.06-1.06M11.54 4.46l1.06-1.06"/></svg>,
+  chat:      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 5h6M5 8h4"/><rect x="1.5" y="1.5" width="13" height="10" rx="1.5"/><path d="M5 14l2-2.5h7V11"/></svg>,
+  send:      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M14 2L7 9M14 2l-4.5 12L7 9 2 5.5z"/></svg>,
+};
 
 export default function Sidebar() {
   const router = useRouter();
@@ -60,7 +71,6 @@ export default function Sidebar() {
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState('');
-  const sidebarRef = useRef<HTMLElement>(null);
 
   const loadSessions = useCallback(() => {
     fetch('/api/sessions').then(r => r.json()).then(s => setSessions(Array.isArray(s) ? s : [])).catch(() => {});
@@ -72,7 +82,6 @@ export default function Sidebar() {
     return () => clearInterval(timer);
   }, [loadSessions]);
 
-  // Only attach outside-click listener when renaming is active
   useEffect(() => {
     if (!renamingId) return;
     function handleClick() { setRenamingId(null); }
@@ -81,7 +90,7 @@ export default function Sidebar() {
   }, [renamingId]);
 
   const isHome = pathname === '/';
-  const isWorkflow = pathname === '/workflow';
+  const isWorkflow = pathname === '/workflow' || pathname.startsWith('/workflow/');
   const isSkills = pathname === '/skills';
   const isSettings = pathname === '/settings';
   const isOutputs = pathname === '/outputs';
@@ -114,88 +123,95 @@ export default function Sidebar() {
   const grouped = useMemo(() => groupSessions(sessions), [sessions]);
 
   return (
-    <aside ref={sidebarRef} style={{
-      width: collapsed?60:250, minWidth: collapsed?60:250,
-      background:'var(--sidebar-bg)', borderRight:'1px solid var(--border)',
-      display:'flex', flexDirection:'column', transition:'width 0.2s ease',
-      overflow:'hidden', userSelect:'none',
+    <aside style={{
+      width: collapsed ? 56 : 232, minWidth: collapsed ? 56 : 232,
+      background: 'var(--sidebar-bg)', borderRight: '1px solid var(--border)',
+      display: 'flex', flexDirection: 'column', transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+      overflow: 'hidden', userSelect: 'none',
     }}>
-      <div style={{ padding:'14px 18px', display:'flex', alignItems:'center', justifyContent: collapsed?'center':'space-between', borderBottom:'1px solid var(--border)' }}>
-        {!collapsed && <span style={{ fontWeight:700, fontSize:'0.9rem', whiteSpace:'nowrap' }}>PM工作助手</span>}
-        <button onClick={()=>setCollapsed(!collapsed)} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'1rem', color:'var(--ink-muted)', padding:0 }}>
-          {collapsed ? '☰' : '✕'}
+      {/* Header */}
+      <div style={{
+        padding: collapsed ? '14px 0' : '14px 16px',
+        display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between',
+        height: 52, borderBottom: '1px solid var(--border)',
+      }}>
+        {!collapsed && (
+          <Link href="/" style={{ textDecoration: 'none', color: 'var(--ink)', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <rect x="1" y="1" width="18" height="18" rx="4" stroke="var(--accent)" strokeWidth="1.5"/>
+              <path d="M6 7h8M6 10h5M6 13h3" stroke="var(--accent)" strokeWidth="1.4" strokeLinecap="round"/>
+            </svg>
+            <span style={{ fontFamily: '"Inter", sans-serif', fontSize: '0.88rem', fontWeight: 650, letterSpacing: '-0.02em' }}>
+              PM Workbench
+            </span>
+          </Link>
+        )}
+        <button onClick={() => setCollapsed(!collapsed)}
+          className="btn-icon" style={{ width: 28, height: 28, fontSize: '0.8rem' }}>
+          {collapsed ? '»' : '«'}
         </button>
       </div>
 
-      <nav style={{ padding:'12px 10px', display:'flex', flexDirection:'column', gap:2 }}>
-        <SidebarLink href="/"         icon="＋" label="新建任务" collapsed={collapsed} active={isHome} />
-        <SidebarLink href="/workflow" icon="⚡" label="工作流"   collapsed={collapsed} active={isWorkflow} />
-        <SidebarLink href="#"         icon="📚" label="知识库"   collapsed={collapsed} />
-        <SidebarLink href="/outputs"  icon="📤" label="工作产出" collapsed={collapsed} active={isOutputs} />
-        <SidebarLink href="/skills"   icon="🔧" label="Skills"   collapsed={collapsed} active={isSkills} />
+      {/* Navigation */}
+      <nav style={{ padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
+        <NavItem href="/"        icon={Icons.plus}     label="新建任务" collapsed={collapsed} active={isHome} />
+        <NavItem href="/workflow" icon={Icons.workflow} label="工作流"   collapsed={collapsed} active={isWorkflow && !isHome} />
+        <NavItem href="/skills"   icon={Icons.skills}   label="技能库"   collapsed={collapsed} active={isSkills} />
+        <NavItem href="/outputs"  icon={Icons.outputs}  label="工作产出" collapsed={collapsed} active={isOutputs} />
       </nav>
 
-      <div style={{ padding:'6px 10px', marginTop:8, flex:1, overflow:'hidden', display:'flex', flexDirection:'column' }}>
-        {!collapsed && <div className="label" style={{ padding:'0 8px', marginBottom:4, fontSize:'0.75rem', color:'var(--ink-faint)', fontWeight:500 }}>历史任务</div>}
-        <div style={{ display:'flex', flexDirection:'column', gap:1, flex:1, overflowY:'auto' }}>
+      {/* History section */}
+      <div style={{ marginTop: 10, flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {!collapsed && (
+          <div className="section-label" style={{ padding: '10px 16px 4px' }}>历史记录</div>
+        )}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '0 6px' }}>
           {grouped.map(group => (
             <div key={group.label}>
               {!collapsed && (
-                <div style={{ padding:'6px 10px 2px', fontSize:'0.7rem', fontWeight:600, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.04em' }}>
+                <div style={{ padding: '10px 10px 3px', fontSize: '0.62rem', fontWeight: 600, color: 'var(--ink-faint)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
                   {group.label}
                 </div>
               )}
               {group.items.map(s => (
-                <div key={s.sessionId} style={{ position:'relative' }}
-                  onMouseEnter={()=>setHoverId(s.sessionId)} onMouseLeave={()=>setHoverId(null)}
-                >
+                <div key={s.sessionId} style={{ position: 'relative' }}
+                  onMouseEnter={() => setHoverId(s.sessionId)} onMouseLeave={() => setHoverId(null)}>
                   {renamingId === s.sessionId ? (
-                    <input
-                      value={renameText}
-                      onChange={e=>setRenameText(e.target.value)}
-                      onKeyDown={e=>{ if(e.key==='Enter') commitRename(s.sessionId); if(e.key==='Escape') setRenamingId(null); }}
-                      onBlur={()=>commitRename(s.sessionId)}
-                      autoFocus
-                      onClick={e=>e.stopPropagation()}
-                      style={{ width:'100%', padding:'6px 8px', borderRadius:6, border:'1px solid var(--accent)', fontSize:'0.82rem', outline:'none', background:'white' }}
-                    />
+                    <input value={renameText} onChange={e => setRenameText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') commitRename(s.sessionId); if (e.key === 'Escape') setRenamingId(null); }}
+                      onBlur={() => commitRename(s.sessionId)} autoFocus onClick={e => e.stopPropagation()}
+                      className="input" style={{ fontSize: '0.76rem', padding: '5px 8px' }} />
                   ) : (
-                    <button
-                      onClick={()=>handleClickSession(s)}
+                    <button onClick={() => handleClickSession(s)}
                       style={{
-                        display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:6, border:'none',
-                        background:'transparent', cursor:'pointer', fontSize:'0.82rem', textAlign:'left', width:'100%',
-                        overflow:'hidden', whiteSpace:'nowrap',
-                        color: 'var(--ink-muted)',
+                        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 3, border: 'none',
+                        background: 'transparent', cursor: 'pointer', fontSize: '0.76rem', textAlign: 'left', width: '100%',
+                        overflow: 'hidden', whiteSpace: 'nowrap', color: 'var(--ink-muted)', fontFamily: 'inherit',
                       }}
-                      className="tr"
-                      onMouseEnter={e=>{e.currentTarget.style.background='var(--sidebar-hover)'}}
-                      onMouseLeave={e=>{e.currentTarget.style.background='transparent'}}
-                    >
+                      className="tr-color"
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--sidebar-hover)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}>
                       {collapsed ? (
-                        <span style={{ position:'relative' }}>
+                        <span style={{ position: 'relative', fontSize: '0.8rem', fontWeight: 500 }}>
                           {s.workflowName.charAt(0)}
-                          {s.status === 'streaming' && (
-                            <span className="cursor-blink" style={{ position:'absolute', top:-2, right:-6, fontSize:'0.55rem', color:'var(--accent)' }}>●</span>
-                          )}
                           {s.status === 'unread' && (
-                            <span style={{ position:'absolute', top:0, right:-6, width:6, height:6, borderRadius:'50%', background:'var(--accent)' }} />
+                            <span style={{ position: 'absolute', top: -1, right: -4, width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)' }} />
                           )}
                         </span>
                       ) : (
-                        <div style={{ overflow:'hidden', flex:1 }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:6 }}>
-                            <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', flex:1 }}>
-                              {s.workflowName}
+                        <div style={{ overflow: 'hidden', flex: 1 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1, fontWeight: 450 }}>
+                              {s.customName || s.workflowName}
                             </span>
                             {s.status === 'streaming' && (
-                              <span className="cursor-blink" title="AI 正在回复…" style={{ fontSize:'0.55rem', color:'var(--accent)', flexShrink:0 }}>●</span>
+                              <span className="cursor-blink" style={{ fontSize: '0.5rem', color: 'var(--accent)', flexShrink: 0 }}>●</span>
                             )}
                             {s.status === 'unread' && (
-                              <span title="新回复" style={{ width:6, height:6, borderRadius:'50%', background:'var(--accent)', flexShrink:0 }} />
+                              <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--accent)', flexShrink: 0 }} />
                             )}
                           </div>
-                          <div style={{ fontSize:'0.7rem', color:'var(--ink-faint)', marginTop:1 }}>
+                          <div style={{ fontSize: '0.64rem', color: 'var(--ink-faint)', marginTop: 1 }}>
                             {timeLabel(s.updatedAt)}
                           </div>
                         </div>
@@ -203,60 +219,58 @@ export default function Sidebar() {
                     </button>
                   )}
                   {!collapsed && hoverId === s.sessionId && renamingId !== s.sessionId && s.status !== 'streaming' && (
-                    <div style={{ position:'absolute', right:6, top:'50%', transform:'translateY(-50%)', display:'flex', gap:2 }}>
-                      <button onClick={e=>{e.stopPropagation();startRename(s);}}
-                        title="重命名"
-                        style={{ background:'transparent',border:'none',cursor:'pointer',fontSize:'0.7rem',padding:'2px',color:'var(--ink-faint)',borderRadius:4 }}
-                      >✏️</button>
-                      <button onClick={e=>{e.stopPropagation();handleDelete(s.sessionId);}}
-                        title="删除"
-                        style={{ background:'transparent',border:'none',cursor:'pointer',fontSize:'0.7rem',padding:'2px',color:'var(--ink-faint)',borderRadius:4 }}
-                      >🗑</button>
+                    <div style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 2 }}>
+                      <button onClick={e => { e.stopPropagation(); startRename(s); }}
+                        style={{ background: 'var(--white)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: '0.58rem', padding: '2px 5px', color: 'var(--ink-muted)', borderRadius: 2, fontFamily: 'inherit' }}>重命名</button>
+                      <button onClick={e => { e.stopPropagation(); handleDelete(s.sessionId); }}
+                        style={{ background: 'var(--white)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: '0.58rem', padding: '2px 5px', color: 'var(--ink-muted)', borderRadius: 2, fontFamily: 'inherit' }}>删除</button>
                     </div>
                   )}
                 </div>
               ))}
             </div>
           ))}
-          {sessions.length===0 && !collapsed && (
-            <div style={{ padding:'12px 10px', fontSize:'0.8rem', color:'var(--ink-faint)' }}>暂无历史记录</div>
+          {sessions.length === 0 && !collapsed && (
+            <div style={{ padding: '16px 12px', fontSize: '0.74rem', color: 'var(--ink-faint)' }}>暂无历史记录</div>
           )}
         </div>
       </div>
 
-      <div style={{ marginTop:'auto', padding:'10px' }}>
-        <Link href="/settings"
-          style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 10px', borderRadius:6, textDecoration:'none', color: isSettings ? 'var(--ink)' : 'var(--ink-muted)', fontSize:'0.85rem', background: isSettings ? 'var(--sidebar-active)' : 'transparent', fontWeight: isSettings ? 600 : 400 }}
-          className="tr"
-          onMouseEnter={e=>{if(!isSettings)e.currentTarget.style.background='var(--sidebar-hover)'}}
-          onMouseLeave={e=>{if(!isSettings)e.currentTarget.style.background='transparent'}}
-        >
-          <span>⚙️</span>
-          {!collapsed && <span>设置</span>}
+      {/* Footer */}
+      <div style={{ padding: '8px', borderTop: '1px solid var(--border)' }}>
+        <Link href="/settings" style={{
+          display: 'flex', alignItems: 'center', gap: 8, padding: '7px 12px', borderRadius: 3, textDecoration: 'none',
+          color: isSettings ? 'var(--ink)' : 'var(--ink-muted)', fontSize: '0.8rem',
+          background: isSettings ? 'var(--sidebar-active)' : 'transparent', fontWeight: isSettings ? 600 : 400,
+          fontFamily: 'inherit', justifyContent: collapsed ? 'center' : 'flex-start',
+        }} className="tr-color"
+          onMouseEnter={e => { if (!isSettings) e.currentTarget.style.background = 'var(--sidebar-hover)' }}
+          onMouseLeave={e => { if (!isSettings) e.currentTarget.style.background = 'transparent' }}>
+          {collapsed ? Icons.settings : <>{Icons.settings}<span>设置</span></>}
         </Link>
       </div>
     </aside>
   );
 }
 
-const SidebarLink = memo(function SidebarLink({ href, icon, label, collapsed, active }: { href:string; icon:string; label:string; collapsed:boolean; active?:boolean }) {
-  if (href === '#') {
-    return (
-      <button style={{ display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:7, border:'none', background:'transparent', cursor:'default', fontSize:'0.85rem', width:'100%', textAlign:'left' as const, color:'var(--ink-faint)', justifyContent: collapsed?'center':'flex-start', opacity:0.5 }}>
-        <span style={{fontSize:'1rem'}}>{icon}</span>
-        {!collapsed && <span style={{whiteSpace:'nowrap'}}>{label}</span>}
-        {!collapsed && <span style={{fontSize:'0.7rem',marginLeft:4,opacity:0.6}}>即将推出</span>}
-      </button>
-    );
-  }
+const NavItem = memo(function NavItem({ href, icon, label, collapsed, active }: {
+  href: string; icon: React.ReactNode; label: string; collapsed: boolean; active?: boolean;
+}) {
   return (
-    <Link href={href} style={{ textDecoration:'none', display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:7, fontSize:'0.85rem', width:'100%', textAlign:'left' as const, background: active ? 'var(--sidebar-active)' : 'transparent', color: active ? 'var(--ink)' : 'var(--ink-muted)', fontWeight: active ? 600 : 400, justifyContent: collapsed?'center':'flex-start' }}
-      className="tr"
-      onMouseEnter={e=>{if(!active)e.currentTarget.style.background='var(--sidebar-hover)'}}
-      onMouseLeave={e=>{if(!active)e.currentTarget.style.background='transparent'}}
-    >
-      <span style={{fontSize:'1rem'}}>{icon}</span>
-      {!collapsed && <span style={{whiteSpace:'nowrap'}}>{label}</span>}
+    <Link href={href} style={{
+      textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 9,
+      padding: '7px 12px', borderRadius: 4, fontSize: '0.8rem', width: '100%',
+      textAlign: 'left' as const,
+      background: active ? 'var(--sidebar-active)' : 'transparent',
+      color: active ? 'var(--ink)' : 'var(--ink-muted)',
+      fontWeight: active ? 600 : 450,
+      justifyContent: collapsed ? 'center' : 'flex-start',
+      fontFamily: 'inherit', letterSpacing: '-0.01em',
+    }} className="tr-color"
+      onMouseEnter={e => { if (!active) e.currentTarget.style.background = 'var(--sidebar-hover)' }}
+      onMouseLeave={e => { if (!active) e.currentTarget.style.background = 'transparent' }}>
+      <span style={{ display: 'flex', alignItems: 'center', opacity: active ? 1 : 0.55 }}>{icon}</span>
+      {!collapsed && <span>{label}</span>}
     </Link>
   );
 });

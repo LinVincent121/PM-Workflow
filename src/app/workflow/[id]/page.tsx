@@ -25,39 +25,35 @@ export default function WorkflowChatPage() {
   const [historyLoaded, setHistoryLoaded] = useState(false);
   const [currentPhase, setCurrentPhase] = useState(0);
   const [totalPhases, setTotalPhases] = useState(0);
-  const [phasePopover, setPhasePopover] = useState(false);
+  const [phaseExpanded, setPhaseExpanded] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorContent, setEditorContent] = useState('');
   const [pendingRevise, setPendingRevise] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const popoverRef = useRef<HTMLDivElement>(null);
+  const phaseRef = useRef<HTMLDivElement>(null);
 
-  // ── Load workflow name + phases ──
+  // Load workflow
   useEffect(() => {
     fetch('/api/workflows').then(r => r.json()).then(d => {
       const wf = d.find((w: any) => w.id === id);
       if (!wf) { router.push('/'); return; }
       setWorkflowName(wf.name);
-      if (wf.phases) {
-        setTotalPhases(wf.phases.length);
-        setPhases(wf.phases);
-      }
+      if (wf.phases) { setTotalPhases(wf.phases.length); setPhases(wf.phases); }
     }).catch(() => { });
   }, [id, router]);
 
-  // ── Check API key ──
+  // Check API key
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(s => { if (!s.llmApiKey) setError('请先在设置页配置 LLM API Key'); }).catch(() => { });
   }, []);
 
-  // ── Load existing session history OR show welcome greeting ──
+  // Load session or show greeting
   useEffect(() => {
     if (!workflowName || historyLoaded) return;
     const sid = searchParams.get('sid');
     if (sid) {
       setSessionId(sid);
-      // Mark read
       fetch('/api/sessions/mark-read', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessionId:sid}) }).catch(()=>{});
       fetch(`/api/sessions?sessionId=${encodeURIComponent(sid)}`)
         .then(r => r.json())
@@ -65,9 +61,7 @@ export default function WorkflowChatPage() {
           if (data.messages && Array.isArray(data.messages) && data.messages.length > 0) {
             setMessages(data.messages);
             if (typeof data.currentPhase === 'number') setCurrentPhase(data.currentPhase);
-          } else {
-            showGreeting();
-          }
+          } else { showGreeting(); }
         })
         .catch(() => showGreeting())
         .finally(() => setHistoryLoaded(true));
@@ -75,49 +69,39 @@ export default function WorkflowChatPage() {
       showGreeting();
       setHistoryLoaded(true);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowName, historyLoaded]);
 
   function showGreeting() {
-    setMessages([{ role: 'assistant', content: `你好！我将引导你完成「**${workflowName}**」工作流。\n\n准备好开始了吗？请描述一下你需要解决的产品问题，或者你想要讨论的主题。` }]);
+    setMessages([{ role: 'assistant', content: `你好！我将引导你完成「**${workflowName}**」工作流。\n\n准备好开始了吗？请描述一下你需要解决的产品问题。` }]);
   }
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  // Close popover on outside click
+  // Close phase panel on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
-        setPhasePopover(false);
-      }
+      if (phaseRef.current && !phaseRef.current.contains(e.target as Node)) setPhaseExpanded(false);
     }
-    if (phasePopover) document.addEventListener('mousedown', handleClick);
+    if (phaseExpanded) document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
-  }, [phasePopover]);
+  }, [phaseExpanded]);
 
-  // ── Auto-resize textarea ──
+  // Auto-resize textarea
   useEffect(() => {
-    const el = textareaRef.current;
-    if (!el) return;
-    el.style.height = 'auto';
-    el.style.height = Math.min(el.scrollHeight, 160) + 'px';
+    const el = textareaRef.current; if (!el) return;
+    el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 160) + 'px';
   }, [input]);
 
-  // ── Handle pending revise request from editor ──
+  // Handle pending revise from editor
   useEffect(() => {
-    if (pendingRevise) {
-      handleSend(pendingRevise);
-      setPendingRevise(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (pendingRevise) { handleSend(pendingRevise); setPendingRevise(null); }
   }, [pendingRevise]);
 
-  // ── Send with SSE streaming ──
+  // Send with SSE
   async function handleSend(overrideMessage?: string) {
     const msgText = overrideMessage || input.trim();
     if (!msgText || sending) return;
-    setSending(true);
-    setError(null);
+    setSending(true); setError(null);
 
     const userMsg: Message = { role: 'user', content: msgText };
     setMessages(prev => [...prev, userMsg]);
@@ -128,149 +112,111 @@ export default function WorkflowChatPage() {
 
     try {
       const res = await fetch('/api/chat/stream', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionId: sessionId || undefined, workflowId: sessionId ? undefined : id, message: userMsg.content }),
       });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: '请求失败' }));
-        throw new Error(err.error || `HTTP ${res.status}`);
-      }
+      if (!res.ok) { const err = await res.json().catch(() => ({ error: '请求失败' })); throw new Error(err.error || `HTTP ${res.status}`); }
 
       const reader = res.body?.getReader();
       if (!reader) throw new Error('No stream body');
 
-      const decoder = new TextDecoder();
-      let buffer = '';
-
+      const decoder = new TextDecoder(); let buffer = '';
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
-
         buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
+        const lines = buffer.split('\n'); buffer = lines.pop() || '';
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
-          const jsonStr = line.slice(6).trim();
-          if (!jsonStr) continue;
-
+          const jsonStr = line.slice(6).trim(); if (!jsonStr) continue;
           try {
             const chunk = JSON.parse(jsonStr);
             if (chunk.error) { setError(chunk.error); break; }
             if (chunk.sessionId && !sessionId) setSessionId(chunk.sessionId);
             if (typeof chunk.currentPhase === 'number') setCurrentPhase(chunk.currentPhase);
             if (chunk.done) break;
-
-            setMessages(prev => {
-              const updated = [...prev];
-              if (assistantIdx < updated.length) {
-                updated[assistantIdx] = { ...updated[assistantIdx], content: updated[assistantIdx].content + (chunk.delta || '') };
-              }
-              return updated;
-            });
-          } catch { /* skip unparseable chunks */ }
+            setMessages(prev => { const updated = [...prev]; if (assistantIdx < updated.length) updated[assistantIdx] = { ...updated[assistantIdx], content: updated[assistantIdx].content + (chunk.delta || '') }; return updated; });
+          } catch { /* skip */ }
         }
       }
     } catch (err: any) {
       setError(err.message);
-      setMessages(prev => {
-        const copy = [...prev];
-        if (copy[assistantIdx]?.content === '') copy.splice(assistantIdx, 1);
-        return copy;
-      });
+      setMessages(prev => { const copy = [...prev]; if (copy[assistantIdx]?.content === '') copy.splice(assistantIdx, 1); return copy; });
     } finally {
       setSending(false);
-      // Auto-generate title after first few exchanges
       if (sessionId && messages.length < 6) {
-        fetch('/api/sessions/generate-title', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId }),
-        }).catch(() => {});
+        fetch('/api/sessions/generate-title', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessionId}) }).catch(() => {});
       }
     }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-    // Shift+Enter: default behavior = newline
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar />
 
+      {/* Chat area */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <header style={{ padding: '14px 24px', borderBottom: '1px solid var(--border)', background: 'white', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          <Link href="/" style={{ color: 'var(--ink-muted)', textDecoration: 'none', fontSize: '0.85rem' }}>← 首页</Link>
-          <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>{workflowName}</span>
+        {/* Header bar */}
+        <header style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', background:'white', display:'flex', alignItems:'center', gap:12, flexShrink:0, height:48 }}>
+          <Link href="/" style={{ color:'var(--ink-faint)', textDecoration:'none', fontSize:'0.8rem', display:'flex', alignItems:'center', gap:4 }}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M10 3L4 8l6 5"/></svg>
+            首页
+          </Link>
+          <span style={{ color:'var(--ink-ghost)' }}>/</span>
+          <span style={{ fontFamily:'"Inter",sans-serif', fontWeight:600, fontSize:'0.88rem', letterSpacing:'-0.01em' }}>{workflowName}</span>
         </header>
 
-        {/* ── Phase progress bar ── */}
+        {/* Phase progress — compact inline bar */}
         {totalPhases > 0 && (
-          <div style={{ padding: '8px 24px', background: 'white', borderBottom: '1px solid var(--border)', flexShrink: 0, position: 'relative' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: '0.75rem', color: 'var(--ink-faint)', whiteSpace: 'nowrap' }}>
-                阶段 {currentPhase + 1}/{totalPhases}
+          <div style={{ padding:'6px 24px', background:'white', borderBottom:'1px solid var(--border-light)', flexShrink:0, position:'relative' }} ref={phaseRef}>
+            <button onClick={() => setPhaseExpanded(!phaseExpanded)}
+              style={{ display:'flex', alignItems:'center', gap:8, background:'none', border:'none', cursor:'pointer', width:'100%', padding:0, fontFamily:'inherit' }}>
+              <span style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--ink-faint)', letterSpacing:'0.04em', textTransform:'uppercase', whiteSpace:'nowrap' }}>
+                阶段 {currentPhase + 1} / {totalPhases}
               </span>
-              <div style={{ flex: 1, height: 4, background: 'var(--border)', borderRadius: 2, overflow: 'hidden', maxWidth: 300 }}>
-                <div style={{
-                  height: '100%',
-                  width: `${((currentPhase + 1) / totalPhases) * 100}%`,
-                  background: 'var(--accent)',
-                  borderRadius: 2,
-                  transition: 'width 0.4s ease',
-                }} />
+              <div style={{ flex:1, height:3, background:'var(--border-light)', borderRadius:1.5, overflow:'hidden' }}>
+                <div style={{ height:'100%', width:`${((currentPhase+1)/totalPhases)*100}%`, background:'var(--accent)', borderRadius:1.5, transition:'width 0.5s ease' }} />
               </div>
-              <button
-                onClick={() => setPhasePopover(!phasePopover)}
-                title="查看所有阶段"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.7rem', color: 'var(--ink-muted)', padding: '2px 6px', borderRadius: 4 }}
-              >
-                {phasePopover ? '收起 ▴' : '详情 ▾'}
-              </button>
-            </div>
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="var(--ink-faint)" strokeWidth="1.5" strokeLinecap="round"
+                style={{ transform: phaseExpanded ? 'rotate(180deg)' : 'none', transition:'transform 0.15s ease' }}>
+                <path d="M4 6l4 4 4-4"/>
+              </svg>
+            </button>
 
-            {/* Popover */}
-            {phasePopover && (
-              <div ref={popoverRef} style={{
-                position: 'absolute', top: '100%', left: 24, zIndex: 50,
-                background: 'white', border: '1px solid var(--border)', borderRadius: 10,
-                boxShadow: '0 4px 16px rgba(0,0,0,0.08), 0 12px 32px rgba(0,0,0,0.06)',
-                padding: '12px 0', minWidth: 320, maxWidth: 420,
-                maxHeight: '60vh', overflowY: 'auto',
+            {/* Expanded phase list */}
+            {phaseExpanded && (
+              <div style={{
+                position:'absolute', top:'100%', left:24, zIndex:50,
+                background:'white', border:'1px solid var(--border)', borderRadius:5,
+                boxShadow:'0 4px 20px rgba(0,0,0,0.06), 0 12px 40px rgba(0,0,0,0.04)',
+                padding:'8px 0', minWidth:360, maxWidth:460, maxHeight:'55vh', overflowY:'auto',
               }}>
                 {phases.map((p, i) => {
                   const status = i < currentPhase ? 'done' : i === currentPhase ? 'active' : 'pending';
-                  const dotColor = status === 'done' ? 'var(--green-text)' : status === 'active' ? 'var(--accent)' : 'var(--border)';
-                  const bg = status === 'active' ? 'var(--paper-warm)' : 'transparent';
                   return (
-                    <div key={p.id} style={{ display: 'flex', gap: 10, padding: '8px 16px', background: bg, alignItems: 'flex-start' }}>
+                    <div key={p.id} style={{
+                      display:'flex', gap:10, padding:'9px 18px',
+                      background: status === 'active' ? 'var(--accent-bg)' : 'transparent',
+                      alignItems:'flex-start',
+                    }}>
                       <span style={{
-                        width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
-                        background: dotColor, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        fontSize: '0.65rem', fontWeight: 700, lineHeight: 1, marginTop: 1,
+                        width:22, height:22, borderRadius:'50%', flexShrink:0,
+                        background: status === 'done' ? 'var(--green-text)' : status === 'active' ? 'var(--accent)' : 'var(--border)',
+                        color:'white', display:'flex', alignItems:'center', justifyContent:'center',
+                        fontSize:'0.62rem', fontWeight:700, lineHeight:1, marginTop:1,
                       }}>
-                        {status === 'done' ? '✓' : status === 'active' ? (i + 1) : (i + 1)}
+                        {status === 'done' ? '✓' : i + 1}
                       </span>
-                      <div style={{ flex: 1 }}>
-                        <div style={{
-                          fontSize: '0.82rem', fontWeight: status === 'active' ? 600 : 500,
-                          color: status === 'pending' ? 'var(--ink-faint)' : 'var(--ink)',
-                        }}>
+                      <div>
+                        <div style={{ fontSize:'0.82rem', fontWeight: status==='active'?600:500, color: status==='pending'?'var(--ink-faint)':'var(--ink)' }}>
                           {p.title}
-                          {status === 'done' && <span style={{ marginLeft: 6, fontSize: '0.65rem', color: 'var(--green-text)' }}>✅</span>}
-                          {status === 'active' && <span style={{ marginLeft: 6, fontSize: '0.6rem', color: 'var(--accent)' }}>进行中</span>}
+                          {status === 'active' && <span style={{ marginLeft:6, fontSize:'0.62rem', color:'var(--accent)', fontWeight:500 }}>进行中</span>}
                         </div>
-                        <div style={{ fontSize: '0.72rem', color: 'var(--ink-faint)', lineHeight: 1.4, marginTop: 1 }}>
-                          {p.description}
-                        </div>
+                        <div style={{ fontSize:'0.7rem', color:'var(--ink-faint)', lineHeight:1.4, marginTop:2 }}>{p.description}</div>
                       </div>
                     </div>
                   );
@@ -280,22 +226,21 @@ export default function WorkflowChatPage() {
           </div>
         )}
 
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px 40px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+        {/* Messages */}
+        <div style={{ flex:1, overflow:'auto', padding:'24px 32px 40px', display:'flex', flexDirection:'column', gap:14 }}>
           {messages.map((m, i) => (
-            <div key={i} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
-              <div className={m.role === 'user' ? 'msg-user' : 'msg-ai'} style={{ maxWidth: '74%', position: 'relative' }}>
+            <div key={i} style={{ display:'flex', justifyContent: m.role==='user'?'flex-end':'flex-start' }}>
+              <div className={m.role==='user'?'msg-user':'msg-ai'} style={{ maxWidth:'72%', position:'relative' }}>
                 {m.role === 'user' ? (
-                  <div style={{ fontSize: '0.875rem', lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                  <div style={{ fontSize:'0.86rem', lineHeight:1.6, whiteSpace:'pre-wrap' }}>{m.content}</div>
                 ) : (
                   <>
                     <Markdown content={m.content} />
                     {m.content && m.content.length > 20 && (
-                      <div style={{ marginTop: 8, textAlign: 'right' }}>
-                        <button
-                          onClick={() => { setEditorContent(m.content); setEditorOpen(true); }}
-                          style={{ background: 'none', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 10px', fontSize: '0.72rem', color: 'var(--ink-muted)', cursor: 'pointer' }}
-                        >
-                          📝 导入编辑
+                      <div style={{ marginTop:10, display:'flex', justifyContent:'flex-end' }}>
+                        <button onClick={() => { setEditorContent(m.content); setEditorOpen(true); }}
+                          style={{ background:'var(--accent-bg)', border:'1px solid var(--accent-border)', borderRadius:3, padding:'4px 12px', fontSize:'0.7rem', color:'var(--accent)', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
+                          导入编辑
                         </button>
                       </div>
                     )}
@@ -305,62 +250,60 @@ export default function WorkflowChatPage() {
             </div>
           ))}
           {sending && (
-            <div style={{ display: 'flex' }}>
-              <div className="msg-ai">
-                <span className="cursor-blink" style={{ color: 'var(--ink-faint)' }}>▊</span>
-              </div>
+            <div style={{ display:'flex' }}>
+              <div className="msg-ai"><span className="cursor-blink" style={{ color:'var(--ink-faint)', fontSize:'0.85rem' }}>▊</span></div>
             </div>
           )}
           <div ref={bottomRef} />
         </div>
 
+        {/* Error bar */}
         {error && (
-          <div style={{ padding: '10px 24px', background: 'var(--red-bg)', borderTop: '1px solid var(--red-border)', fontSize: '0.85rem', color: 'var(--red-text)', flexShrink: 0 }}>
+          <div style={{ padding:'8px 24px', background:'var(--red-bg)', borderTop:'1px solid var(--red-border)', fontSize:'0.8rem', color:'var(--red-text)', flexShrink:0, display:'flex', alignItems:'center', gap:8 }}>
             {error}
-            <button onClick={() => setError(null)} style={{ marginLeft: 12, background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer', color: 'var(--red-text)' }}>关闭</button>
+            <button onClick={() => setError(null)} style={{ background:'none', border:'none', textDecoration:'underline', cursor:'pointer', color:'var(--red-text)', fontSize:'0.76rem' }}>关闭</button>
           </div>
         )}
 
-        <div style={{ padding: '14px 24px 18px', borderTop: '1px solid var(--border)', background: 'white', flexShrink: 0 }}>
-          <div style={{ maxWidth: 800, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder={sending ? 'AI 思考中…' : '输入你的回答，或选择编号…  Shift+Enter 换行'}
-              disabled={sending}
-              rows={1}
-              style={{
-                flex: 1, padding: '10px 16px', border: '1px solid var(--border)', borderRadius: 12,
-                fontSize: '0.9rem', outline: 'none', background: 'var(--paper)',
-                resize: 'none', fontFamily: 'inherit', lineHeight: 1.5,
-                maxHeight: 160, overflowY: 'auto',
-              }}
-            />
-            <button onClick={() => handleSend()} disabled={sending || !input.trim()}
-              style={{ padding: '10px 20px', height: 40, background: sending || !input.trim() ? '#e0ddda' : 'var(--accent)', color: 'white', border: 'none', borderRadius: 10, fontSize: '0.9rem', fontWeight: 500, cursor: sending || !input.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}
-            >
-              发送
-            </button>
-          </div>
-          <div style={{ maxWidth: 800, margin: '4px auto 0', fontSize: '0.7rem', color: 'var(--ink-faint)', textAlign: 'right' }}>
-            <kbd style={{ background:'var(--sidebar-bg)', padding:'1px 5px', borderRadius:3, border:'1px solid var(--border)', fontSize:'0.65rem' }}>Enter</kbd> 发送 · <kbd style={{ background:'var(--sidebar-bg)', padding:'1px 5px', borderRadius:3, border:'1px solid var(--border)', fontSize:'0.65rem' }}>Shift+Enter</kbd> 换行
+        {/* Input area */}
+        <div style={{ padding:'14px 32px 20px', borderTop:'1px solid var(--border)', background:'white', flexShrink:0 }}>
+          <div style={{ maxWidth:800, margin:'0 auto' }}>
+            <div style={{ display:'flex', gap:10, alignItems:'flex-end' }}>
+              <textarea ref={textareaRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
+                placeholder={sending ? 'AI 思考中…' : '输入你的问题…  Enter 发送'}
+                disabled={sending} rows={1}
+                style={{
+                  flex:1, padding:'10px 16px', border:'1px solid var(--border)', borderRadius:4, fontSize:'0.86rem',
+                  outline:'none', background:'var(--paper)', resize:'none', fontFamily:'inherit', lineHeight:1.5,
+                  maxHeight:160, overflowY:'auto',
+                  transition:'border-color 0.12s ease, box-shadow 0.12s ease',
+                }}
+                onFocus={e => { e.currentTarget.style.borderColor = 'var(--accent)'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(37,99,235,0.08)'; }}
+                onBlur={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.boxShadow = 'none'; }}
+              />
+              <button onClick={() => handleSend()} disabled={sending || !input.trim()} className="btn-primary"
+                style={{ padding:'10px 22px', height:40, fontSize:'0.84rem', display:'flex', alignItems:'center', gap:5 }}>
+                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M14 2L7 9M14 2l-4.5 12L7 9 2 5.5z"/></svg>
+                发送
+              </button>
+            </div>
+            <div style={{ marginTop:5, fontSize:'0.66rem', color:'var(--ink-faint)', display:'flex', gap:10 }}>
+              <span>Enter 发送</span>
+              <span>Shift + Enter 换行</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Markdown Editor panel */}
       {editorOpen && (
-        <div style={{ flex: 2, minWidth: 340, maxWidth: '42%' }}>
-          <MarkdownEditor
-            initialContent={editorContent}
-            workflowId={id}
-            sessionId={sessionId || ''}
-            onClose={() => setEditorOpen(false)}
-            onReviseRequest={(msg) => setPendingRevise(msg)}
-          />
-        </div>
+        <MarkdownEditor
+          initialContent={editorContent}
+          workflowId={id}
+          sessionId={sessionId || ''}
+          onClose={() => setEditorOpen(false)}
+          onReviseRequest={(msg) => setPendingRevise(msg)}
+        />
       )}
     </div>
   );

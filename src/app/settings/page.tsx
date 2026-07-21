@@ -13,104 +13,92 @@ export default function SettingsPage() {
   const [showKey, setShowKey] = useState(false);
 
   useEffect(() => {
-    fetch('/api/settings')
-      .then((r) => r.json())
-      .then((s) => {
-        setLlmApiKey(s.llmApiKey || '');
-        setLlmBaseUrl(s.llmBaseUrl || '');
-        setLlmModel(s.llmModel || '');
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    fetch('/api/settings').then(r=>r.json()).then(s=>{
+      setLlmApiKey(s.llmApiKey||''); setLlmBaseUrl(s.llmBaseUrl||''); setLlmModel(s.llmModel||''); setLoading(false);
+    }).catch(()=>setLoading(false));
   }, []);
 
   async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setError(''); setSaved(false);
-
+    e.preventDefault(); setError(''); setSaved(false);
     try {
       const body: any = {};
       if (llmApiKey) body.llmApiKey = llmApiKey;
       if (llmBaseUrl) body.llmBaseUrl = llmBaseUrl;
       if (llmModel) body.llmModel = llmModel;
-
-      const res = await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
+      const res = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (err: any) {
-      setError(err.message);
-    }
+      setSaved(true); setTimeout(()=>setSaved(false),3000);
+    } catch (err: any) { setError(err.message); }
   }
 
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
       <Sidebar />
-      <main style={{ flex:1, overflow:'auto', padding:'32px 40px' }}>
-        <h1 className="display" style={{ marginBottom:8 }}>模型设置</h1>
-        <p className="body" style={{ marginBottom:32 }}>配置大模型连接参数。支持所有 OpenAI 兼容 API 和本地模型。</p>
+      <main style={{ flex:1, overflow:'auto', padding:'40px 48px' }}>
+        <header style={{ marginBottom: 28 }}>
+          <h1 className="display" style={{ fontSize:'clamp(1.4rem, 2vw, 1.7rem)', marginBottom:6 }}>Model Settings</h1>
+          <p className="body-text">Configure your LLM provider. Supports any OpenAI-compatible API.</p>
+        </header>
 
-        {error && <div style={{ background:'var(--red-bg)', border:'1px solid var(--red-border)', borderRadius:8, padding:'12px 16px', marginBottom:20, fontSize:'0.9rem', color:'var(--red-text)' }}>{error}</div>}
-        {saved && <div style={{ background:'var(--green-bg)', border:'1px solid var(--green-border)', borderRadius:8, padding:'12px 16px', marginBottom:20, fontSize:'0.9rem', color:'var(--green-text)' }}>设置已保存</div>}
+        {error && (
+          <div style={{ background:'var(--red-bg)', border:'1px solid var(--red-border)', borderRadius:4, padding:'10px 16px', marginBottom:18, fontSize:'0.82rem', color:'var(--red-text)', maxWidth:500 }}>
+            {error}
+          </div>
+        )}
+        {saved && (
+          <div style={{ background:'var(--green-bg)', border:'1px solid var(--green-border)', borderRadius:4, padding:'10px 16px', marginBottom:18, fontSize:'0.82rem', color:'var(--green-text)', maxWidth:500 }}>
+            Settings saved
+          </div>
+        )}
 
-        <form onSubmit={handleSave} style={{ display:'flex', flexDirection:'column', gap:24, maxWidth:560 }}>
-          <label style={{ display:'flex', flexDirection:'column', gap:6 }}>
-            <span style={{ fontSize:'0.9rem', fontWeight:500 }}>API Base URL</span>
-            <span style={{ fontSize:'0.8rem', color:'var(--ink-faint)' }}>支持 OpenAI、OpenRouter、Together AI 或本地 Ollama</span>
-            <input type="text" value={llmBaseUrl} onChange={e=>setLlmBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1"
-              style={{ padding:'10px 14px', border:'1px solid var(--border)', borderRadius:8, fontSize:'0.9rem', background:'white', outline:'none' }} />
+        <form onSubmit={handleSave} style={{ display:'flex', flexDirection:'column', gap:20, maxWidth:500 }}>
+          <label style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            <span style={{ fontSize:'0.85rem', fontWeight:600, fontFamily:'Inter, sans-serif' }}>API Base URL</span>
+            <span className="caption">OpenAI, OpenRouter, Together AI, or Ollama</span>
+            <input className="input" type="text" value={llmBaseUrl} onChange={e=>setLlmBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
           </label>
 
-          <label style={{ display:'flex', flexDirection:'column', gap:6 }}>
-            <span style={{ fontSize:'0.9rem', fontWeight:500 }}>API Key</span>
-            <span style={{ fontSize:'0.8rem', color:'var(--ink-faint)' }}>Key 仅保存在服务器端，不会暴露到浏览器</span>
+          <label style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            <span style={{ fontSize:'0.85rem', fontWeight:600, fontFamily:'Inter, sans-serif' }}>API Key</span>
+            <span className="caption">Stored server-side only</span>
             <div style={{ position:'relative' }}>
-              <input
-                type={showKey ? 'text' : 'password'}
-                value={llmApiKey}
-                onChange={e=>setLlmApiKey(e.target.value)}
-                placeholder="sk-..." autoComplete="off"
-                style={{ padding:'10px 44px 10px 14px', border:'1px solid var(--border)', borderRadius:8, fontSize:'0.9rem', background:'white', outline:'none', width:'100%' }}
-              />
-              <button type="button" onClick={()=>setShowKey(!showKey)}
-                title={showKey?'隐藏 Key':'显示 Key'}
-                style={{ position:'absolute', right:10, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:'1rem', color:'var(--ink-faint)', padding:'4px' }}
-              >{showKey ? '🙈' : '👁'}</button>
+              <input className="input" type={showKey?'text':'password'} value={llmApiKey} onChange={e=>setLlmApiKey(e.target.value)} placeholder="sk-..." autoComplete="off" style={{ paddingRight:40 }} />
+              <button type="button" onClick={()=>setShowKey(!showKey)} style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:'0.72rem', color:'var(--ink-muted)', fontFamily:'inherit' }}>
+                {showKey?'Hide':'Show'}
+              </button>
             </div>
           </label>
 
-          <label style={{ display:'flex', flexDirection:'column', gap:6 }}>
-            <span style={{ fontSize:'0.9rem', fontWeight:500 }}>Model</span>
-            <span style={{ fontSize:'0.8rem', color:'var(--ink-faint)' }}>输入模型 ID，如 gpt-4o、deepseek-chat</span>
-            <input type="text" value={llmModel} onChange={e=>setLlmModel(e.target.value)} placeholder="gpt-4o"
-              style={{ padding:'10px 14px', border:'1px solid var(--border)', borderRadius:8, fontSize:'0.9rem', background:'white', outline:'none' }} />
+          <label style={{ display:'flex', flexDirection:'column', gap:4 }}>
+            <span style={{ fontSize:'0.85rem', fontWeight:600, fontFamily:'Inter, sans-serif' }}>Model ID</span>
+            <span className="caption">e.g. gpt-4o, claude-sonnet-4-20250514</span>
+            <input className="input" type="text" value={llmModel} onChange={e=>setLlmModel(e.target.value)} placeholder="gpt-4o" />
           </label>
 
-          <button type="submit"
-            style={{ padding:'12px 24px', background:'var(--accent)', color:'white', border:'none', borderRadius:8, fontSize:'0.95rem', fontWeight:500, cursor:'pointer', marginTop:8, alignSelf:'flex-start' }}
-          >保存设置</button>
+          <button type="submit" className="btn-primary" style={{ alignSelf:'flex-start', marginTop:4, fontSize:'0.84rem', padding:'9px 24px' }}>
+            Save Settings
+          </button>
         </form>
 
-        <div style={{ marginTop:48, padding:'20px 24px', background:'white', borderRadius:10, border:'1px solid var(--border)', maxWidth:560 }}>
-          <h3 style={{ fontSize:'0.95rem', fontWeight:600, marginBottom:12 }}>常见 Provider 配置</h3>
-          <div style={{ display:'flex', flexDirection:'column', gap:8, fontSize:'0.85rem' }}>
+        {/* Providers */}
+        <div style={{ marginTop: 40, padding:'18px 22px', background:'white', border:'1px solid var(--border)', borderRadius:4, maxWidth:500 }}>
+          <h3 style={{ fontFamily:'Inter, sans-serif', fontSize:'0.84rem', fontWeight:600, marginBottom:12 }}>Quick Config</h3>
+          <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
             {[
               { name:'OpenAI', url:'https://api.openai.com/v1', model:'gpt-4o' },
               { name:'OpenRouter', url:'https://openrouter.ai/api/v1', model:'openai/gpt-4o' },
               { name:'Together AI', url:'https://api.together.xyz/v1', model:'meta-llama/Llama-4' },
               { name:'DeepSeek', url:'https://api.deepseek.com/v1', model:'deepseek-chat' },
-              { name:'Ollama (本地)', url:'http://localhost:11434/v1', model:'llama3' },
+              { name:'Ollama', url:'http://localhost:11434/v1', model:'llama3' },
             ].map(p=>(
               <button key={p.name} onClick={()=>{setLlmBaseUrl(p.url);setLlmModel(p.model);}}
-                style={{ textAlign:'left', padding:'8px 12px', border:'1px solid var(--border)', borderRadius:6, background:'transparent', cursor:'pointer', fontSize:'0.85rem' }}>
-                <span style={{fontWeight:500}}>{p.name}</span>{' — '}
-                <code style={{fontSize:'0.8rem',color:'var(--ink-muted)'}}>{p.url}</code>
-                {' · '}<code style={{fontSize:'0.8rem',color:'var(--ink-muted)'}}>{p.model}</code>
+                style={{ textAlign:'left', padding:'7px 14px', border:'1px solid var(--border-light)', borderRadius:3, background:'transparent', cursor:'pointer', fontSize:'0.8rem', fontFamily:'Inter, system-ui, sans-serif', display:'flex', alignItems:'center', gap:8 }}
+                className="tr-color"
+                onMouseEnter={e=>e.currentTarget.style.background='var(--sidebar-hover)'}
+                onMouseLeave={e=>e.currentTarget.style.background='transparent'}>
+                <span style={{ fontWeight:600 }}>{p.name}</span>
+                <span style={{ color:'var(--ink-faint)', fontSize:'0.73rem' }}>{p.url}</span>
               </button>
             ))}
           </div>
