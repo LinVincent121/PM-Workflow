@@ -93,9 +93,33 @@ d222b6f fix: correct skills root path from ../pm-skills to pm-skills
 |---|------|------|------|------|
 | 1 | Skills API 返回空数组 | `SKILLS_ROOT` 用了 `../pm-skills`，cwd 变为根目录后路径解析为 `d:/Desktop/pm-skills`（不存在） | 改为 `pm-skills` | 项目结构调整后检查所有相对路径 |
 | 2 | `MarkdownEditor` 工具栏不可见 | 两层 `flex: 0 0 50%` 嵌套 + `minWidth:0` 导致内容挤压 | 外层父容器控制宽度，内层用 `flex:1` 填充 | 复杂 flex 嵌套先画 ASCII 层级图再写代码 |
-| 3 | React key 缺失导致组件重 mount 丢状态 | `{editorOpen && <MarkdownEditor/>}` 无 key，React 可能复用旧实例 | 加固定 key `'editor-active'` | 条件渲染的复杂组件始终给稳定 key |
-| 4 | 「已导入」不生效 | `handleImportDone` 用 `messages.findIndex` 匹配内容，但编辑器内内容可能已被修改 | 改为 `editingMsgIdx` 在 `openEditor` 时直接记录消息索引 | 状态追踪优先用索引而非内容匹配 |
-| 5 | Agnes AI API 返回 404 HTML | `platform.agnes-ai.com/v1/chat/completions` 路径不存在 | `.env` 重置为 OpenAI 默认 | 新 provider 先用 curl 验证 endpoint |
+| 3 | 「已导入」不生效 | `handleImportDone` 用 `messages.findIndex` 匹配内容，但编辑器内内容可能已被修改 | 改为 `editingMsgIdx` 在 `openEditor` 时直接记录消息索引 | 状态追踪优先用索引而非内容匹配 |
+| 4 | Agnes AI API 返回 404 HTML | `platform.agnes-ai.com/v1/chat/completions` 路径不存在 | `.env` 重置为 OpenAI 默认 | 新 provider 先用 curl 验证 endpoint |
+
+## 未修复 Bug（2026-07-22 确认仍存在）
+
+以下 3 个 bug 已尝试修复多次但尚未 root-cause，标注实际行为与期望行为，需要下个会话继续排查：
+
+### BUG-1：「导入编辑」按钮文案未变更
+
+- **期望行为**：点击对话区的「导入编辑」→ 进入编辑器 → mini chat 中「导入此版本」→ 按钮变绿色「已导入」
+- **实际行为**：`handleImportDone()` 在 `onImported` 回调中执行，但 `editingMsgIdx` 为 `null`（关闭编辑器时被 `setEditingMsgIdx(null)` 清零），导致 `setImportedMsgIdx` 未被调用
+- **根因分析**：时序问题——`handleImportDone` 在设置 `importedMsgIdx` 后又 `setEditorOpen(false)` + `setEditingMsgIdx(null)`。React 批量更新可能把 `setImportedMsgIdx` 和 `setEditingMsgIdx(null)` 合并，或者 `editorOpen=false` 导致组件卸载时 React 丢弃了待处理的状态更新
+- **排查方向**：尝试将 `setImportedMsgIdx` 和 `setEditorOpen(false)` 拆为两个独立的函数调用，或者用 `useRef` 替代 `useState` 追踪导入状态
+
+### BUG-2：「AI 审查」按钮状态不持久（关闭编辑器后重置）
+
+- **期望行为**：AI 审查完成后按钮变绿「AI 已审查」→ 关闭编辑器 → 再打开 → 按钮仍然是「AI 已审查」状态
+- **实际行为**：加了 `key='editor-active'` 后，`reviewResult` 状态仍然在 close → reopen 时丢失
+- **根因分析**：`key='editor-active'` 是固定值，React 不会重新 mount。但条件渲染 `{editorOpen && <MarkdownEditor/>}` 中 `editorOpen=false` 会**卸载**整个组件树，状态全部销毁。下次 `editorOpen=true` 时组件全新 mount，`reviewResult` 初始化为 `null`
+- **排查方向**：改为始终渲染但用 CSS `display:none` 隐藏（而非条件渲染卸载），或把 `reviewResult` 状态提升到父组件的 `useRef` 中
+
+### BUG-3：同工作流保存时创建新产出而非更新旧产出
+
+- **期望行为**：在同一工作流对话中多次保存，使用同一个 `outputId`，只递增版本号
+- **实际行为**：每次保存都创建新的工作产出记录。关闭编辑器后 `outputId` 状态被卸载丢失；手动「保存」时 `openSaveDialog` 的 `if (!outputId)` 条件为 `true`，走新纪录创建路径
+- **根因分析**：`MarkdownEditor` 卸载后 `outputId` 丢失。即使 BUG-2 解决让组件不卸载，`savedOutputId` 也仅通过「依此修改」的 auto-save 路径设置，手动点击「保存」按钮时 `outputId` 可能仍未设置
+- **排查方向**：将 `outputId` / `savedOutputId` 提升到父组件 `WorkflowChatPage` 中（不随编辑器卸载丢失）；手动保存时先查是否已有同 sessionId+workflowId 的产出记录
 
 ## 系统记忆
 
