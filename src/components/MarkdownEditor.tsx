@@ -5,6 +5,11 @@ import Markdown from './Markdown';
 
 interface ReviewResult {
   summary: string; strengths: string[]; weaknesses: string[]; suggestions: string[]; completeness: number;
+  reviewedAt: number; // timestamp
+}
+interface HistoryReview {
+  result: ReviewResult;
+  contentSnapshot: string;
 }
 interface MiniMessage { role: 'user' | 'assistant'; content: string; }
 
@@ -19,6 +24,8 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
+  const [reviewHistory, setReviewHistory] = useState<HistoryReview[]>([]);
+  const [viewingHistoryIdx, setViewingHistoryIdx] = useState<number | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [lastEditTime, setLastEditTime] = useState<Date>(new Date());
@@ -35,6 +42,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   const [miniInput, setMiniInput] = useState('');
   const [miniSending, setMiniSending] = useState(false);
   const [imported, setImported] = useState(false);
+  const [savedOutputId, setSavedOutputId] = useState<string | null>(null); // saved md reference for revise
   const miniBottomRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -48,27 +56,114 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
 
   function handleContentChange(val: string) { setContent(val); setSaved(false); autoSave(val); }
 
-  async function handleReview() {
+  // Show result — either latest or from history
+  const displayedResult = viewingHistoryIdx !== null
+    ? reviewHistory[viewingHistoryIdx]?.result ?? null
+    : reviewResult;
+
+  // ── Review ──
+  async function doReview() {
     if (!content.trim()) return;
-    setReviewing(true); setReviewError(null); setReviewResult(null);
+    setReviewing(true); setReviewError(null);
     try {
       const res = await fetch('/api/review', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ content, workflowId }) });
       if (!res.ok) throw new Error((await res.json().catch(()=>({error:'请求失败'}))).error);
-      setReviewResult(await res.json());
+      const data = await res.json();
+      const result: ReviewResult = { ...data, reviewedAt: Date.now() };
+      setReviewResult(result);
+      setReviewHistory(prev => [...prev, { result, contentSnapshot: content }]);
+      setViewingHistoryIdx(null);
     } catch (err: any) { setReviewError(err.message); }
     finally { setReviewing(false); }
   }
 
-  function handleRevise() {
-    if (!reviewResult || !onReviseRequest) return;
-    const reviewText = [
-      `审查总结：${reviewResult.summary}`,
-      `优点：${reviewResult.strengths.join('；')}`,
-      `缺点：${reviewResult.weaknesses.join('；')}`,
-      `改进建议：${reviewResult.suggestions.join('；')}`,
-      `完整度评分：${reviewResult.completeness}/100`,
-    ].join('\n');
-    onReviseRequest(`请根据以下审查结果修改文档内容，输出修改后的完整版本：\n\n${reviewText}\n\n原始文档：\n${content.substring(0, 4000)}`);
+  function showLatestReview() {
+    if (reviewResult) {
+      setViewingHistoryIdx(null); // switch back to latest
+    } else {
+      doReview();
+    }
+  }
+
+  function viewHistoryReview(idx: number) {
+    setViewingHistoryIdx(idx);
+  }
+
+  // ── Revise: smart prompt + auto-save ──
+  async function handleRevise(customFeedback?: string) {
+    const target = displayedResult;
+    if (!target || !onReviseRequest) return;
+
+    // 1. Auto-save current content as a work output first
+    let fileRef = savedOutputId;
+    if (!fileRef) {
+      try {
+        const title = (await generateTitleQuick()).trim() || `审查文档_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}`;
+        const res = await fetch('/api/outputs', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ sessionId, workflowId, title, version: 'V1.0.0', content }),
+        });
+        if (res.ok) {
+          const d = await res.json();
+          fileRef = d.outputId;
+          setSavedOutputId(d.outputId);
+          setOutputId(d.outputId);
+          setSaved(true);
+        }
+      } catch {}
+    }
+
+    // 2. Build smart prompt
+    const reviewLines = [
+      `审查总结：${target.summary}`,
+      `优点：${target.strengths.join('；')}`,
+      `待改进：${target.weaknesses.join('；')}`,
+      `改进建议：${target.suggestions.join('；')}`,
+      `完整度：${target.completeness}%`,
+    ];
+    if (customFeedback) reviewLines.push(`用户补充意见：${customFeedback}`);
+
+    const reviewText = reviewLines.join('\n');
+
+    // Content is short enough to embed directly
+    if (content.length <= 4000) {
+      onReviseRequest(`请根据以下审查结果修改文档内容，输出修改后的完整版本：\n\n${reviewText}\n\n原始文档：\n${content}`);
+      return;
+    }
+
+    // Content is long — reference the saved file
+    if (fileRef) {
+      onReviseRequest(
+        `我在「工作产出」中保存了一份需要修改的文档（outputId: ${fileRef}），标题为"${saveTitle || '审查文档'}"。\n\n` +
+        `请先读取该文档的完整内容，然后根据以下审查结果对所有问题逐一修改，输出修改后的完整版本。\n\n${reviewText}\n\n` +
+        `要求：\n1. 读取保存的文档（outputId: ${fileRef}）\n2. 对审查中提到的每一条问题逐一修改\n3. 输出完整的修改后文档`
+      );
+      return;
+    }
+
+    // Fallback: truncate
+    onReviseRequest(`请根据以下审查结果修改文档内容。注意：原文较长，以下提供原文前 4000 字符作为参考，请基于审查意见输出完整修改版本：\n\n${reviewText}\n\n原文摘要：\n${content.substring(0, 4000)}`);
+  }
+
+  async function generateTitleQuick(): Promise<string> {
+    try {
+      const res = await fetch('/api/outputs/generate-title', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ content: content.substring(0,2000) }) });
+      if (res.ok) { const d = await res.json(); if (d.title) return d.title; }
+    } catch {}
+    return `审查文档_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}`;
+  }
+
+  // ── Mini chat (user feedback for revise) ──
+  function openFeedbackChat() {
+    setMiniChatOpen(true);
+  }
+
+  function sendFeedbackAndRevise() {
+    const fb = miniInput.trim();
+    if (!fb) { handleRevise(); return; }
+    setMiniChatOpen(false);
+    setMiniInput('');
+    handleRevise(fb);
   }
 
   async function sendMiniMessage(msgs?: MiniMessage[]) {
@@ -108,6 +203,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
     onImported?.();
   }
 
+  // ── Save ──
   async function handleSave() {
     if (!saveTitle.trim() || !saveVersion.trim()) return;
     setSaving(true);
@@ -115,7 +211,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
       const res = await fetch('/api/outputs', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ outputId: outputId||undefined, sessionId, workflowId, title: saveTitle.trim(), version: saveVersion.trim(), content }) });
       if (!res.ok) throw new Error('保存失败');
       const data = await res.json();
-      if (data.outputId && !outputId) setOutputId(data.outputId);
+      if (data.outputId && !outputId) { setOutputId(data.outputId); setSavedOutputId(data.outputId); }
       setSaved(true); setVersionCount(prev=>prev+1);
       const parts = saveVersion.match(/^V(\d+)\.(\d+)\.(\d+)$/i);
       if (parts) setSaveVersion(`V${parts[1]}.${parts[2]}.${parseInt(parts[3],10)+1}`);
@@ -138,7 +234,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
 
   return (
     <div style={{ flex: '0 0 50%', display:'flex', flexDirection:'column', background:'white', borderLeft:'1px solid var(--border)', position:'relative', minWidth:340 }}>
-      {/* Review loading overlay — frosted glass */}
+      {/* Review loading overlay */}
       {reviewing && (
         <div style={{ position:'absolute', inset:0, zIndex:50, background:'rgba(255,255,255,0.75)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:10 }}>
           <div style={{ width:32, height:32, border:'3px solid var(--border)', borderTop:'3px solid var(--accent)', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
@@ -146,26 +242,29 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
         </div>
       )}
 
-      {/* Toolbar — always visible */}
+      {/* Toolbar */}
       <div style={{ padding:'8px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:8, flexShrink:0, height:48 }}>
-        <button onClick={onClose} title="收起编辑器"
-          className="btn-ghost" style={{ padding:'4px 10px', fontSize:'0.72rem', display:'flex', alignItems:'center', gap:3 }}>
+        <button onClick={onClose} title="收起编辑器" className="btn-ghost" style={{ padding:'4px 10px', fontSize:'0.72rem', display:'flex', alignItems:'center', gap:3 }}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M10 4l-6 4 6 4"/></svg>
           收起
         </button>
-
         {imported && (
-          <span style={{ fontSize:'0.66rem', color:'var(--green-text)', background:'var(--green-bg)', padding:'2px 8px', borderRadius:3, fontWeight:500 }}>
-            已导入
-          </span>
+          <span style={{ fontSize:'0.66rem', color:'var(--green-text)', background:'var(--green-bg)', padding:'2px 8px', borderRadius:3, fontWeight:500 }}>已导入</span>
         )}
-
         <div style={{ flex:1 }} />
 
-        <button onClick={handleReview} disabled={reviewing || !content.trim()}
-          className="btn-ghost" style={{ padding:'4px 12px', fontSize:'0.72rem', opacity: reviewing?0.5:1 }}>
-          AI 审查
-        </button>
+        {/* Review button: changes text after first review */}
+        {reviewResult ? (
+          <button onClick={showLatestReview}
+            className="btn-ghost" style={{ padding:'4px 12px', fontSize:'0.72rem', color:'var(--green-text)', borderColor:'var(--green-border)', background:'var(--green-bg)' }}>
+            AI 已审查
+          </button>
+        ) : (
+          <button onClick={doReview} disabled={reviewing || !content.trim()}
+            className="btn-ghost" style={{ padding:'4px 12px', fontSize:'0.72rem', opacity: reviewing?0.5:1 }}>
+            AI 审查
+          </button>
+        )}
 
         <div style={{ display:'flex', borderRadius:3, overflow:'hidden', border:'1px solid var(--border)' }}>
           <button onClick={() => setViewMode('edit')}
@@ -181,10 +280,9 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
         </div>
       </div>
 
-      {/* Body: editor+review split */}
+      {/* Body */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-        {/* Editor/Preview — top half (full if no review) */}
-        <div style={{ flex: reviewResult ? '0 0 50%' : 1, overflow:'auto', borderBottom: reviewResult ? '1px solid var(--border)' : 'none' }}>
+        <div style={{ flex: displayedResult ? '0 0 50%' : 1, overflow:'auto', borderBottom: displayedResult ? '1px solid var(--border)' : 'none' }}>
           {viewMode === 'edit' ? (
             <textarea value={content} onChange={e => handleContentChange(e.target.value)}
               placeholder="在此编辑 Markdown 内容…"
@@ -194,62 +292,89 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
           )}
         </div>
 
-        {/* Review result — bottom half */}
-        {reviewResult && (
+        {/* Review result panel */}
+        {displayedResult && (
           <div style={{ flex: '0 0 50%', overflowY:'auto', display:'flex', flexDirection:'column' }}>
-            <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0, background:'var(--sidebar-bg)' }}>
+            {/* Review header bar */}
+            <div style={{ padding:'8px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0, background:'var(--sidebar-bg)' }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <span style={{ fontSize:'0.76rem', fontWeight:600 }}>审查结果</span>
+                <span style={{ fontSize:'0.76rem', fontWeight:600 }}>
+                  审查结果
+                  {viewingHistoryIdx !== null && <span style={{ fontWeight:400, color:'var(--ink-faint)', marginLeft:4 }}>#{viewingHistoryIdx + 1}</span>}
+                </span>
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <span style={{ fontSize:'0.66rem', color:'var(--ink-muted)' }}>完整度</span>
-                  <span style={{ fontSize:'0.82rem', fontWeight:700, fontFamily:'"JetBrains Mono",monospace', color: reviewResult.completeness>=70?'var(--green-text)':'var(--accent)' }}>
-                    {reviewResult.completeness}%
+                  <span style={{ fontSize:'0.82rem', fontWeight:700, fontFamily:'"JetBrains Mono",monospace', color: displayedResult.completeness>=70?'var(--green-text)':'var(--accent)' }}>
+                    {displayedResult.completeness}%
                   </span>
                   <div style={{ width:60, height:4, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
-                    <div style={{ height:'100%', width:`${reviewResult.completeness}%`, background: reviewResult.completeness>=70?'var(--green-text)':'var(--accent)', borderRadius:2, transition:'width 0.5s ease' }} />
+                    <div style={{ height:'100%', width:`${displayedResult.completeness}%`, background: displayedResult.completeness>=70?'var(--green-text)':'var(--accent)', borderRadius:2 }} />
                   </div>
                 </div>
               </div>
-              <button onClick={handleRevise} className="btn-primary" style={{ padding:'5px 14px', fontSize:'0.7rem' }}>
-                依此修改
-              </button>
+              <div style={{ display:'flex', gap:6 }}>
+                {/* Re-review button */}
+                <button onClick={doReview} disabled={reviewing} title="再次启动AI审查"
+                  className="btn-ghost" style={{ padding:'4px 10px', fontSize:'0.66rem' }}>
+                  {reviewing ? '审查中…' : '再次审查'}
+                </button>
+                {/* Revise button */}
+                <button onClick={() => handleRevise()} className="btn-primary" style={{ padding:'5px 14px', fontSize:'0.7rem' }}>
+                  依此修改
+                </button>
+                {/* User feedback */}
+                <button onClick={openFeedbackChat} title="补充修改意见"
+                  className="btn-ghost" style={{ padding:'4px 8px', fontSize:'0.66rem' }}>
+                  补充意见
+                </button>
+              </div>
             </div>
 
+            {/* History timeline — show if more than 1 review */}
+            {reviewHistory.length > 1 && (
+              <div style={{ padding:'6px 14px', borderBottom:'1px solid var(--border-light)', display:'flex', gap:6, overflowX:'auto', flexShrink:0, background:'white' }}>
+                <span style={{ fontSize:'0.64rem', color:'var(--ink-faint)', fontWeight:500, whiteSpace:'nowrap' }}>审查记录：</span>
+                {reviewHistory.map((h, i) => (
+                  <button key={i} onClick={() => viewHistoryReview(i)}
+                    style={{
+                      background: (viewingHistoryIdx ?? reviewHistory.length - 1) === i ? 'var(--accent)' : 'var(--sidebar-hover)',
+                      color: (viewingHistoryIdx ?? reviewHistory.length - 1) === i ? 'white' : 'var(--ink-muted)',
+                      border: 'none', borderRadius:3, padding:'2px 8px', fontSize:'0.62rem', cursor:'pointer',
+                      fontFamily:'"JetBrains Mono",monospace', whiteSpace:'nowrap',
+                    }}>
+                    #{i + 1} · {h.result.completeness}%
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Review cards */}
             <div style={{ flex:1, overflowY:'auto', padding:'10px 14px', display:'flex', flexDirection:'column', gap:8 }}>
               <div style={{ background:'var(--paper)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--border-light)' }}>
                 <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:4 }}>总结</div>
-                <div style={{ fontSize:'0.76rem', lineHeight:1.55 }}>{reviewResult.summary}</div>
+                <div style={{ fontSize:'0.76rem', lineHeight:1.55 }}>{displayedResult.summary}</div>
               </div>
-
-              {reviewResult.strengths.length>0 && (
+              {displayedResult.strengths.length>0 && (
                 <div style={{ background:'var(--green-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--green-border)' }}>
                   <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--green-text)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>优点</div>
                   <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
-                    {reviewResult.strengths.map((s,i)=>(
-                      <li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>
-                    ))}
+                    {displayedResult.strengths.map((s,i)=>(<li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>))}
                   </ul>
                 </div>
               )}
-
-              {reviewResult.weaknesses.length>0 && (
+              {displayedResult.weaknesses.length>0 && (
                 <div style={{ background:'var(--red-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--red-border)' }}>
                   <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--red-text)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>待改进</div>
                   <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
-                    {reviewResult.weaknesses.map((s,i)=>(
-                      <li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>
-                    ))}
+                    {displayedResult.weaknesses.map((s,i)=>(<li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>))}
                   </ul>
                 </div>
               )}
-
-              {reviewResult.suggestions.length>0 && (
+              {displayedResult.suggestions.length>0 && (
                 <div style={{ background:'var(--accent-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--accent-border)' }}>
                   <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>建议</div>
                   <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
-                    {reviewResult.suggestions.map((s,i)=>(
-                      <li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>
-                    ))}
+                    {displayedResult.suggestions.map((s,i)=>(<li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>))}
                   </ul>
                 </div>
               )}
@@ -265,33 +390,27 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
         </div>
       )}
 
-      {/* Mini chat */}
+      {/* Mini chat — user feedback before revise */}
       {miniChatOpen && (
-        <div style={{ borderTop:'1px solid var(--border)', flexShrink:0, display:'flex', flexDirection:'column', maxHeight:260 }}>
+        <div style={{ borderTop:'1px solid var(--border)', flexShrink:0, display:'flex', flexDirection:'column', maxHeight:220 }}>
           <div style={{ padding:'6px 14px', fontSize:'0.72rem', fontWeight:600, borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            AI 修改建议
+            补充修改意见
             <button onClick={()=>setMiniChatOpen(false)} style={{ background:'none',border:'none',cursor:'pointer',fontSize:'0.8rem',color:'var(--ink-faint)' }}>✕</button>
           </div>
-          <div style={{ flex:1, overflowY:'auto', padding:'8px 14px', display:'flex', flexDirection:'column', gap:6 }}>
-            {miniMessages.map((m,i)=>(
-              <div key={i} style={{ fontSize:'0.72rem', lineHeight:1.5, padding:'6px 10px', borderRadius:4, background: m.role==='user'?'var(--accent-bg)':'var(--paper)', maxWidth:'88%', alignSelf: m.role==='user'?'flex-end':'flex-start', border: m.role==='user'?'1px solid var(--accent-border)':'1px solid var(--border)' }}>
-                {m.content || (miniSending?<span className="cursor-blink">▊</span>:'…')}
-                {m.role==='assistant' && m.content && (
-                  <div style={{ marginTop:4 }}>
-                    <button onClick={()=>importRevision(m.content)}
-                      className="btn-ghost" style={{ padding:'2px 8px', fontSize:'0.64rem' }}>导入此版本</button>
-                  </div>
-                )}
-              </div>
-            ))}
-            <div ref={miniBottomRef} />
-          </div>
-          <div style={{ padding:'6px 14px', borderTop:'1px solid var(--border)', display:'flex', gap:6 }}>
-            <input value={miniInput} onChange={e=>setMiniInput(e.target.value)}
-              onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMiniMessage();}}}
-              placeholder="补充说明…" disabled={miniSending}
-              style={{ flex:1, padding:'6px 10px', border:'1px solid var(--border)', borderRadius:3, fontSize:'0.76rem', outline:'none', fontFamily:'inherit' }} />
-            <button onClick={()=>sendMiniMessage()} disabled={miniSending||!miniInput.trim()} className="btn-primary" style={{ padding:'6px 14px', fontSize:'0.74rem' }}>发送</button>
+          <div style={{ padding:'10px 14px' }}>
+            <textarea value={miniInput} onChange={e=>setMiniInput(e.target.value)}
+              placeholder="输入补充意见（可选），然后点击发送将审查结果和意见一起提交修改。留空则直接按审查结果修改。"
+              style={{ width:'100%', height:80, padding:'8px 12px', border:'1px solid var(--border)', borderRadius:3, fontSize:'0.76rem', outline:'none', resize:'none', fontFamily:'inherit' }} />
+            <div style={{ display:'flex', justifyContent:'flex-end', gap:6, marginTop:8 }}>
+              <button onClick={() => { handleRevise(); setMiniChatOpen(false); }}
+                className="btn-ghost" style={{ fontSize:'0.72rem' }}>
+                直接修改（不用补充意见）
+              </button>
+              <button onClick={sendFeedbackAndRevise} disabled={!miniInput.trim()}
+                className="btn-primary" style={{ padding:'6px 14px', fontSize:'0.72rem' }}>
+                补充并修改
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -300,9 +419,9 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
       <div style={{ padding:'8px 14px', borderTop:'1px solid var(--border)', display:'flex', alignItems:'center', gap:10, flexShrink:0, fontSize:'0.68rem', color:'var(--ink-faint)', fontFamily:'"JetBrains Mono",monospace' }}>
         <span>{saved?'已保存':'已编辑'} · {lastEditTime.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span>
         <span>V{versionCount}</span>
+        {savedOutputId && <span style={{ color:'var(--accent)' }}>已关联产出</span>}
         <div style={{ flex:1 }} />
-        <button onClick={openSaveDialog}
-          className="btn-primary" style={{ padding:'5px 16px', fontSize:'0.72rem' }}>
+        <button onClick={openSaveDialog} className="btn-primary" style={{ padding:'5px 16px', fontSize:'0.72rem' }}>
           {saved ? '已保存' : '保存'}
         </button>
       </div>
@@ -331,6 +450,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
           </div>
         </div>
       )}
+
       <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
