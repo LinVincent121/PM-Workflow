@@ -167,12 +167,7 @@ export default function WorkflowChatPage() {
     setImportedMessageIdx(null);
   }
 
-  function handleEditorImported() {
-    // After import, close the editor and keep track of which message was imported
-    // The "已导入" label will show on the message whose content was imported
-    setEditorOpen(false);
-    // importedMessageIdx stays set to show "已导入" on the card
-  }
+  function handleEditorImported() {}
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
@@ -347,7 +342,9 @@ export default function WorkflowChatPage() {
           onClose={handleCloseEditor}
           onTitleGenerated={() => {}}
           onReviseRequest={(msg) => setPendingRevise(msg)}
-          onImported={handleEditorImported}
+          onImported={() => {
+            setEditorOpen(false);
+          }}
         />
       )}
     </div>
