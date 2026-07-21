@@ -335,17 +335,19 @@ export default function WorkflowChatPage() {
 
       {/* Markdown Editor panel — 50% */}
       {editorOpen && (
-        <MarkdownEditor
-          initialContent={editorContent}
-          workflowId={id}
-          sessionId={sessionId || ''}
-          onClose={handleCloseEditor}
-          onTitleGenerated={() => {}}
-          onReviseRequest={(msg) => setPendingRevise(msg)}
-          onImported={() => {
-            setEditorOpen(false);
-          }}
-        />
+        <div style={{ flex: '0 0 50%', height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+          <MarkdownEditor
+            initialContent={editorContent}
+            workflowId={id}
+            sessionId={sessionId || ''}
+            onClose={handleCloseEditor}
+            onTitleGenerated={() => {}}
+            onReviseRequest={(msg) => setPendingRevise(msg)}
+            onImported={() => {
+              setEditorOpen(false);
+            }}
+          />
+        </div>
       )}
     </div>
   );
