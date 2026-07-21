@@ -350,6 +350,7 @@ export default function WorkflowChatPage() {
           onTitleGenerated={() => {}}
           onReviseRequest={(msg) => setPendingRevise(msg)}
           onImported={handleImportDone}
+          key={editorContent ? 'editor-active' : 'editor-empty'}
         />
       )}
       </div>{/* close chat+editor flex container */}
