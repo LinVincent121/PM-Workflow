@@ -100,7 +100,11 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
     finally { setMiniSending(false); }
   }
 
-  function importRevision(text: string) { setContent(text); setMiniChatOpen(false); setMiniMessages([]); setImported(true); onImported?.(); }
+  function importRevision(text: string) {
+    setContent(text); setMiniChatOpen(false); setMiniMessages([]);
+    setImported(true);
+    onImported?.();
+  }
 
   async function handleSave() {
     if (!saveTitle.trim() || !saveVersion.trim()) return;

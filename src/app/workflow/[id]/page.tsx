@@ -28,7 +28,7 @@ export default function WorkflowChatPage() {
   const [phaseExpanded, setPhaseExpanded] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorContent, setEditorContent] = useState('');
-  const [editorImported, setEditorImported] = useState(false);
+  const [importedMessageIdx, setImportedMessageIdx] = useState<number | null>(null);
   const [pendingRevise, setPendingRevise] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -155,14 +155,23 @@ export default function WorkflowChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
-  function handleOpenEditor(content: string) {
+  function handleOpenEditor(content: string, msgIdx: number) {
     setEditorContent(content);
     setEditorOpen(true);
-    setEditorImported(false);
+    setImportedMessageIdx(msgIdx);
+  }
+
+  // Debug: ensure editorOpen/importerMessageIdx don't interfere with each other
+  function handleCloseEditor() {
+    setEditorOpen(false);
+    setImportedMessageIdx(null);
   }
 
   function handleEditorImported() {
-    setEditorImported(true);
+    // After import, close the editor and keep track of which message was imported
+    // The "已导入" label will show on the message whose content was imported
+    setEditorOpen(false);
+    // importedMessageIdx stays set to show "已导入" on the card
   }
 
   return (
@@ -184,11 +193,10 @@ export default function WorkflowChatPage() {
 
           {/* Editor toggle button — always visible on chat page */}
           <button onClick={() => {
-            if (editorOpen) { setEditorOpen(false); setEditorImported(false); }
+            if (editorOpen) { handleCloseEditor(); }
             else {
-              // Find latest assistant message to edit
               const lastAi = [...messages].reverse().find(m => m.role === 'assistant');
-              if (lastAi) handleOpenEditor(lastAi.content);
+              if (lastAi) handleOpenEditor(lastAi.content, messages.indexOf(lastAi));
               else setEditorOpen(true);
             }
           }}
@@ -266,15 +274,16 @@ export default function WorkflowChatPage() {
                     <Markdown content={m.content} />
                     {m.content && m.content.length > 20 && (
                       <div style={{ marginTop:10, display:'flex', justifyContent:'flex-end' }}>
-                        <button onClick={() => handleOpenEditor(m.content)}
+                        <button onClick={() => handleOpenEditor(m.content, i)}
                           style={{
-                            background: editorImported && !editorOpen ? 'var(--green-bg)' : 'var(--accent-bg)',
-                            border: editorImported && !editorOpen ? '1px solid var(--green-border)' : '1px solid var(--accent-border)',
+                            background: importedMessageIdx === i ? 'var(--green-bg)' : 'var(--accent-bg)',
+                            border: importedMessageIdx === i ? '1px solid var(--green-border)' : '1px solid var(--accent-border)',
                             borderRadius:3, padding:'4px 12px', fontSize:'0.7rem',
-                            color: editorImported && !editorOpen ? 'var(--green-text)' : 'var(--accent)',
-                            cursor:'pointer', fontFamily:'inherit', fontWeight:500,
-                          }}>
-                          {editorImported ? '已导入' : '导入编辑'}
+                            color: importedMessageIdx === i ? 'var(--green-text)' : 'var(--accent)',
+                            cursor: 'pointer', fontFamily:'inherit', fontWeight:500,
+                          }}
+                          disabled={importedMessageIdx === i}>
+                          {importedMessageIdx === i ? '已导入' : '导入编辑'}
                         </button>
                       </div>
                     )}
@@ -335,7 +344,7 @@ export default function WorkflowChatPage() {
           initialContent={editorContent}
           workflowId={id}
           sessionId={sessionId || ''}
-          onClose={() => { setEditorOpen(false); setEditorImported(false); }}
+          onClose={handleCloseEditor}
           onTitleGenerated={() => {}}
           onReviseRequest={(msg) => setPendingRevise(msg)}
           onImported={handleEditorImported}
