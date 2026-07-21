@@ -27,8 +27,8 @@ export default function SkillsPage() {
       <Sidebar />
       <main style={{ flex:1, overflow:'auto', padding:'40px 48px' }}>
         <header style={{ marginBottom: 28 }}>
-          <h1 className="display" style={{ fontSize:'clamp(1.4rem, 2vw, 1.7rem)', marginBottom:6 }}>Skills</h1>
-          <p className="body-text">{skills.length} skills indexed from pm-skills directory. Click to view source.</p>
+          <h1 className="display" style={{ fontSize:'clamp(1.4rem, 2vw, 1.7rem)', marginBottom:6 }}>技能库</h1>
+          <p className="body-text">{skills.length} 个技能已索引自 pm-skills 目录。点击卡片查看完整文档。</p>
         </header>
 
         {loading ? (
@@ -64,11 +64,11 @@ export default function SkillsPage() {
             }} onClick={e => e.stopPropagation()}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
                 <span style={{ fontWeight:600, fontSize:'0.95rem', fontFamily:'Inter, sans-serif' }}>{viewSkill}</span>
-                <button onClick={() => { setViewSkill(null); setSkillContent(''); }} className="btn-ghost" style={{ fontSize:'0.76rem' }}>Close</button>
+                <button onClick={() => { setViewSkill(null); setSkillContent(''); }} className="btn-ghost" style={{ fontSize:'0.76rem' }}>关闭</button>
               </div>
               <div style={{ border:'1px solid var(--border)', borderRadius:3, padding:'14px 18px', background:'var(--sidebar-bg)' }}>
                 <pre style={{ whiteSpace:'pre-wrap', fontSize:'0.78rem', lineHeight:1.65, fontFamily:"'JetBrains Mono',ui-monospace,monospace", color:'var(--ink)' }}>
-                  {skillContent || 'Loading...'}
+                  {skillContent || '加载中...'}
                 </pre>
               </div>
             </div>

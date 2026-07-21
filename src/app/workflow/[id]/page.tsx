@@ -28,6 +28,7 @@ export default function WorkflowChatPage() {
   const [phaseExpanded, setPhaseExpanded] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorContent, setEditorContent] = useState('');
+  const [editorImported, setEditorImported] = useState(false);
   const [pendingRevise, setPendingRevise] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -154,12 +155,22 @@ export default function WorkflowChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
+  function handleOpenEditor(content: string) {
+    setEditorContent(content);
+    setEditorOpen(true);
+    setEditorImported(false);
+  }
+
+  function handleEditorImported() {
+    setEditorImported(true);
+  }
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar />
 
-      {/* Chat area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Chat area — 50% when editor open */}
+      <div style={{ flex: editorOpen ? '0 0 50%' : 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: editorOpen ? '1px solid var(--border)' : 'none' }}>
         {/* Header bar */}
         <header style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', background:'white', display:'flex', alignItems:'center', gap:12, flexShrink:0, height:48 }}>
           <Link href="/" style={{ color:'var(--ink-faint)', textDecoration:'none', fontSize:'0.8rem', display:'flex', alignItems:'center', gap:4 }}>
@@ -168,9 +179,27 @@ export default function WorkflowChatPage() {
           </Link>
           <span style={{ color:'var(--ink-ghost)' }}>/</span>
           <span style={{ fontFamily:'"Inter",sans-serif', fontWeight:600, fontSize:'0.88rem', letterSpacing:'-0.01em' }}>{workflowName}</span>
+
+          <div style={{ flex:1 }} />
+
+          {/* Editor toggle button — always visible on chat page */}
+          <button onClick={() => {
+            if (editorOpen) { setEditorOpen(false); setEditorImported(false); }
+            else {
+              // Find latest assistant message to edit
+              const lastAi = [...messages].reverse().find(m => m.role === 'assistant');
+              if (lastAi) handleOpenEditor(lastAi.content);
+              else setEditorOpen(true);
+            }
+          }}
+          className="btn-ghost" style={{ padding:'4px 14px', fontSize:'0.72rem', display:'flex', alignItems:'center', gap:5 }}
+          title={editorOpen ? '收起编辑器' : '打开编辑器'}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 10h10M3 6h7"/><rect x="2" y="2" width="12" height="12" rx="1.5"/></svg>
+            {editorOpen ? '收起编辑器' : '打开编辑器'}
+          </button>
         </header>
 
-        {/* Phase progress — compact inline bar */}
+        {/* Phase progress */}
         {totalPhases > 0 && (
           <div style={{ padding:'6px 24px', background:'white', borderBottom:'1px solid var(--border-light)', flexShrink:0, position:'relative' }} ref={phaseRef}>
             <button onClick={() => setPhaseExpanded(!phaseExpanded)}
@@ -187,7 +216,6 @@ export default function WorkflowChatPage() {
               </svg>
             </button>
 
-            {/* Expanded phase list */}
             {phaseExpanded && (
               <div style={{
                 position:'absolute', top:'100%', left:24, zIndex:50,
@@ -230,7 +258,7 @@ export default function WorkflowChatPage() {
         <div style={{ flex:1, overflow:'auto', padding:'24px 32px 40px', display:'flex', flexDirection:'column', gap:14 }}>
           {messages.map((m, i) => (
             <div key={i} style={{ display:'flex', justifyContent: m.role==='user'?'flex-end':'flex-start' }}>
-              <div className={m.role==='user'?'msg-user':'msg-ai'} style={{ maxWidth:'72%', position:'relative' }}>
+              <div className={m.role==='user'?'msg-user':'msg-ai'} style={{ maxWidth:'85%', position:'relative' }}>
                 {m.role === 'user' ? (
                   <div style={{ fontSize:'0.86rem', lineHeight:1.6, whiteSpace:'pre-wrap' }}>{m.content}</div>
                 ) : (
@@ -238,9 +266,15 @@ export default function WorkflowChatPage() {
                     <Markdown content={m.content} />
                     {m.content && m.content.length > 20 && (
                       <div style={{ marginTop:10, display:'flex', justifyContent:'flex-end' }}>
-                        <button onClick={() => { setEditorContent(m.content); setEditorOpen(true); }}
-                          style={{ background:'var(--accent-bg)', border:'1px solid var(--accent-border)', borderRadius:3, padding:'4px 12px', fontSize:'0.7rem', color:'var(--accent)', cursor:'pointer', fontFamily:'inherit', fontWeight:500 }}>
-                          导入编辑
+                        <button onClick={() => handleOpenEditor(m.content)}
+                          style={{
+                            background: editorImported && !editorOpen ? 'var(--green-bg)' : 'var(--accent-bg)',
+                            border: editorImported && !editorOpen ? '1px solid var(--green-border)' : '1px solid var(--accent-border)',
+                            borderRadius:3, padding:'4px 12px', fontSize:'0.7rem',
+                            color: editorImported && !editorOpen ? 'var(--green-text)' : 'var(--accent)',
+                            cursor:'pointer', fontFamily:'inherit', fontWeight:500,
+                          }}>
+                          {editorImported ? '已导入' : '导入编辑'}
                         </button>
                       </div>
                     )}
@@ -295,14 +329,16 @@ export default function WorkflowChatPage() {
         </div>
       </div>
 
-      {/* Markdown Editor panel */}
+      {/* Markdown Editor panel — 50% */}
       {editorOpen && (
         <MarkdownEditor
           initialContent={editorContent}
           workflowId={id}
           sessionId={sessionId || ''}
-          onClose={() => setEditorOpen(false)}
+          onClose={() => { setEditorOpen(false); setEditorImported(false); }}
+          onTitleGenerated={() => {}}
           onReviseRequest={(msg) => setPendingRevise(msg)}
+          onImported={handleEditorImported}
         />
       )}
     </div>

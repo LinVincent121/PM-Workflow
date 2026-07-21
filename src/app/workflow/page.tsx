@@ -38,8 +38,8 @@ export default function WorkflowPage() {
       <Sidebar />
       <main style={{ flex:1, overflow:'auto', padding:'40px 48px' }}>
         <header style={{ marginBottom: 28 }}>
-          <h1 className="display" style={{ fontSize:'clamp(1.4rem, 2vw, 1.7rem)', marginBottom:6 }}>Workflows</h1>
-          <p className="body-text">10 structured PM workflows. Each orchestrates multiple skills across phases.</p>
+          <h1 className="display" style={{ fontSize:'clamp(1.4rem, 2vw, 1.7rem)', marginBottom:6 }}>工作流</h1>
+          <p className="body-text">10 个结构化 PM 工作流，每个编排多个 Skills 跨阶段执行。</p>
         </header>
 
         {loading ? (

@@ -37,8 +37,8 @@ export default function SettingsPage() {
       <Sidebar />
       <main style={{ flex:1, overflow:'auto', padding:'40px 48px' }}>
         <header style={{ marginBottom: 28 }}>
-          <h1 className="display" style={{ fontSize:'clamp(1.4rem, 2vw, 1.7rem)', marginBottom:6 }}>Model Settings</h1>
-          <p className="body-text">Configure your LLM provider. Supports any OpenAI-compatible API.</p>
+          <h1 className="display" style={{ fontSize:'clamp(1.4rem, 2vw, 1.7rem)', marginBottom:6 }}>模型设置</h1>
+          <p className="body-text">配置大模型连接参数。支持所有 OpenAI 兼容 API 提供商。</p>
         </header>
 
         {error && (
@@ -48,42 +48,42 @@ export default function SettingsPage() {
         )}
         {saved && (
           <div style={{ background:'var(--green-bg)', border:'1px solid var(--green-border)', borderRadius:4, padding:'10px 16px', marginBottom:18, fontSize:'0.82rem', color:'var(--green-text)', maxWidth:500 }}>
-            Settings saved
+            设置已保存
           </div>
         )}
 
         <form onSubmit={handleSave} style={{ display:'flex', flexDirection:'column', gap:20, maxWidth:500 }}>
           <label style={{ display:'flex', flexDirection:'column', gap:4 }}>
             <span style={{ fontSize:'0.85rem', fontWeight:600, fontFamily:'Inter, sans-serif' }}>API Base URL</span>
-            <span className="caption">OpenAI, OpenRouter, Together AI, or Ollama</span>
+            <span className="caption">OpenAI、OpenRouter、Together AI 或 Ollama</span>
             <input className="input" type="text" value={llmBaseUrl} onChange={e=>setLlmBaseUrl(e.target.value)} placeholder="https://api.openai.com/v1" />
           </label>
 
           <label style={{ display:'flex', flexDirection:'column', gap:4 }}>
             <span style={{ fontSize:'0.85rem', fontWeight:600, fontFamily:'Inter, sans-serif' }}>API Key</span>
-            <span className="caption">Stored server-side only</span>
+            <span className="caption">Key 仅保存在服务器端</span>
             <div style={{ position:'relative' }}>
               <input className="input" type={showKey?'text':'password'} value={llmApiKey} onChange={e=>setLlmApiKey(e.target.value)} placeholder="sk-..." autoComplete="off" style={{ paddingRight:40 }} />
               <button type="button" onClick={()=>setShowKey(!showKey)} style={{ position:'absolute', right:8, top:'50%', transform:'translateY(-50%)', background:'none', border:'none', cursor:'pointer', fontSize:'0.72rem', color:'var(--ink-muted)', fontFamily:'inherit' }}>
-                {showKey?'Hide':'Show'}
+                {showKey?'隐藏':'显示'}
               </button>
             </div>
           </label>
 
           <label style={{ display:'flex', flexDirection:'column', gap:4 }}>
             <span style={{ fontSize:'0.85rem', fontWeight:600, fontFamily:'Inter, sans-serif' }}>Model ID</span>
-            <span className="caption">e.g. gpt-4o, claude-sonnet-4-20250514</span>
+            <span className="caption">如 gpt-4o、deepseek-chat、claude-sonnet-4-20250514</span>
             <input className="input" type="text" value={llmModel} onChange={e=>setLlmModel(e.target.value)} placeholder="gpt-4o" />
           </label>
 
           <button type="submit" className="btn-primary" style={{ alignSelf:'flex-start', marginTop:4, fontSize:'0.84rem', padding:'9px 24px' }}>
-            Save Settings
+            保存设置
           </button>
         </form>
 
         {/* Providers */}
         <div style={{ marginTop: 40, padding:'18px 22px', background:'white', border:'1px solid var(--border)', borderRadius:4, maxWidth:500 }}>
-          <h3 style={{ fontFamily:'Inter, sans-serif', fontSize:'0.84rem', fontWeight:600, marginBottom:12 }}>Quick Config</h3>
+          <h3 style={{ fontFamily:'Inter, sans-serif', fontSize:'0.84rem', fontWeight:600, marginBottom:12 }}>快速配置</h3>
           <div style={{ display:'flex', flexDirection:'column', gap:5 }}>
             {[
               { name:'OpenAI', url:'https://api.openai.com/v1', model:'gpt-4o' },

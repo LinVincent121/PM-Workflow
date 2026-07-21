@@ -12,9 +12,10 @@ interface Props {
   initialContent: string; workflowId: string; sessionId: string;
   onClose: () => void; onTitleGenerated?: (title: string) => void;
   onReviseRequest?: (message: string) => void;
+  onImported?: () => void;
 }
 
-export default function MarkdownEditor({ initialContent, workflowId, sessionId, onClose, onTitleGenerated, onReviseRequest }: Props) {
+export default function MarkdownEditor({ initialContent, workflowId, sessionId, onClose, onTitleGenerated, onReviseRequest, onImported }: Props) {
   const [content, setContent] = useState(initialContent);
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
@@ -33,6 +34,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   const [miniMessages, setMiniMessages] = useState<MiniMessage[]>([]);
   const [miniInput, setMiniInput] = useState('');
   const [miniSending, setMiniSending] = useState(false);
+  const [imported, setImported] = useState(false);
   const miniBottomRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -60,11 +62,11 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   function handleRevise() {
     if (!reviewResult || !onReviseRequest) return;
     const reviewText = [
-      `**审查总结**：${reviewResult.summary}`,
-      `**优点**：${reviewResult.strengths.join('；')}`,
-      `**缺点**：${reviewResult.weaknesses.join('；')}`,
-      `**改进建议**：${reviewResult.suggestions.join('；')}`,
-      `**完整度评分**：${reviewResult.completeness}/100`,
+      `审查总结：${reviewResult.summary}`,
+      `优点：${reviewResult.strengths.join('；')}`,
+      `缺点：${reviewResult.weaknesses.join('；')}`,
+      `改进建议：${reviewResult.suggestions.join('；')}`,
+      `完整度评分：${reviewResult.completeness}/100`,
     ].join('\n');
     onReviseRequest(`请根据以下审查结果修改文档内容，输出修改后的完整版本：\n\n${reviewText}\n\n原始文档：\n${content.substring(0, 4000)}`);
   }
@@ -89,18 +91,16 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
         for (const line of lines) {
           if (!line.startsWith('data: ')) continue;
           const jsonStr = line.slice(6).trim(); if (!jsonStr) continue;
-          try {
-            const chunk = JSON.parse(jsonStr);
-            if (chunk.error) break; if (chunk.done) break;
-            setMiniMessages(prev => { const u = [...prev]; if (aiIdx < u.length) u[aiIdx] = {...u[aiIdx], content: u[aiIdx].content+(chunk.delta||'')}; return u; });
+          try { const chunk = JSON.parse(jsonStr); if (chunk.error) break; if (chunk.done) break;
+            setMiniMessages(prev => { const u=[...prev]; if(aiIdx<u.length)u[aiIdx]={...u[aiIdx],content:u[aiIdx].content+(chunk.delta||'')}; return u; });
           } catch {}
         }
       }
-    } catch { setMiniMessages(prev => prev.filter((_,j)=>j!==aiIdx)); }
+    } catch { setMiniMessages(prev=>prev.filter((_,j)=>j!==aiIdx)); }
     finally { setMiniSending(false); }
   }
 
-  function importRevision(text: string) { setContent(text); setMiniChatOpen(false); setMiniMessages([]); }
+  function importRevision(text: string) { setContent(text); setMiniChatOpen(false); setMiniMessages([]); setImported(true); onImported?.(); }
 
   async function handleSave() {
     if (!saveTitle.trim() || !saveVersion.trim()) return;
@@ -131,23 +131,33 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   }
 
   return (
-    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'white', borderLeft:'1px solid var(--border)' }}>
+    <div style={{ flex: '0 0 50%', display:'flex', flexDirection:'column', height:'100%', background:'white', borderLeft:'1px solid var(--border)', position:'relative' }}>
+      {/* Review loading overlay */}
+      {reviewing && (
+        <div style={{ position:'absolute', inset:0, zIndex:50, background:'rgba(255,255,255,0.75)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:10 }}>
+          <div style={{ width:32, height:32, border:'3px solid var(--border)', borderTop:'3px solid var(--accent)', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
+          <span style={{ fontSize:'0.82rem', fontWeight:500, color:'var(--ink-muted)' }}>AI 审查中…</span>
+        </div>
+      )}
+
       {/* Toolbar */}
       <div style={{ padding:'8px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:8, flexShrink:0, height:48 }}>
         <button onClick={onClose} title="收起编辑器"
-          style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.85rem', color:'var(--ink-faint)', padding:'4px 6px', borderRadius:3, fontFamily:'inherit', display:'flex', alignItems:'center', gap:3 }}
-          className="tr-color"
-          onMouseEnter={e=>{e.currentTarget.style.color='var(--ink)'}}
-          onMouseLeave={e=>{e.currentTarget.style.color='var(--ink-faint)'}}>
+          className="btn-ghost" style={{ padding:'4px 10px', fontSize:'0.72rem', display:'flex', alignItems:'center', gap:3 }}>
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M10 4l-6 4 6 4"/></svg>
           收起
         </button>
+
+        {/* Import status */}
+        {imported && <span style={{ fontSize:'0.66rem', color:'var(--green-text)', background:'var(--green-bg)', padding:'2px 8px', borderRadius:3, fontWeight:500 }}>已导入</span>}
+
         <div style={{ flex:1 }} />
+
         <button onClick={handleReview} disabled={reviewing || !content.trim()}
           className="btn-ghost" style={{ padding:'4px 12px', fontSize:'0.72rem', opacity: reviewing?0.5:1 }}>
-          {reviewing ? '审查中…' : 'AI 审查'}
+          AI 审查
         </button>
-        {/* View mode toggle */}
+
         <div style={{ display:'flex', borderRadius:3, overflow:'hidden', border:'1px solid var(--border)' }}>
           <button onClick={() => setViewMode('edit')}
             style={{ padding:'4px 12px', fontSize:'0.72rem', border:'none', cursor:'pointer', fontFamily:'inherit',
@@ -162,35 +172,95 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
         </div>
       </div>
 
-      {/* Editor / Preview */}
-      <div style={{ flex:1, overflow:'auto' }}>
-        {viewMode === 'edit' ? (
-          <textarea value={content} onChange={e => handleContentChange(e.target.value)}
-            placeholder="在此编辑 Markdown 内容…"
-            style={{ width:'100%', height:'100%', padding:'16px 18px', border:'none', outline:'none', resize:'none', fontFamily:'"JetBrains Mono",ui-monospace,monospace', fontSize:'0.78rem', lineHeight:1.7, background:'var(--sidebar-bg)', color:'var(--ink)' }} />
-        ) : (
-          <div style={{ padding:'16px 18px' }}><Markdown content={content} /></div>
+      {/* Main area: editor/preview on top, review result on bottom */}
+      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
+        {/* Editor/Preview — top half (or full if no review) */}
+        <div style={{ flex: reviewResult ? '0 0 50%' : 1, overflow:'auto', borderBottom: reviewResult ? '1px solid var(--border)' : 'none' }}>
+          {viewMode === 'edit' ? (
+            <textarea value={content} onChange={e => handleContentChange(e.target.value)}
+              placeholder="在此编辑 Markdown 内容…"
+              style={{ width:'100%', height:'100%', padding:'16px 18px', border:'none', outline:'none', resize:'none', fontFamily:'"JetBrains Mono",ui-monospace,monospace', fontSize:'0.78rem', lineHeight:1.7, background:'var(--sidebar-bg)', color:'var(--ink)' }} />
+          ) : (
+            <div style={{ padding:'16px 18px' }}><Markdown content={content} /></div>
+          )}
+        </div>
+
+        {/* Review result — bottom 50% */}
+        {reviewResult && (
+          <div style={{ flex: '0 0 50%', overflowY:'auto', display:'flex', flexDirection:'column' }}>
+            {/* Header */}
+            <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0, background:'var(--sidebar-bg)' }}>
+              <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                <span style={{ fontSize:'0.76rem', fontWeight:600, fontFamily:'Inter,sans-serif' }}>审查结果</span>
+                <div style={{ display:'flex', alignItems:'center', gap:6 }}>
+                  <span style={{ fontSize:'0.66rem', color:'var(--ink-muted)' }}>完整度</span>
+                  <span style={{ fontSize:'0.82rem', fontWeight:700, fontFamily:'"JetBrains Mono",monospace', color: reviewResult.completeness>=70?'var(--green-text)':'var(--accent)' }}>
+                    {reviewResult.completeness}%
+                  </span>
+                  <div style={{ width:60, height:4, background:'var(--border)', borderRadius:2, overflow:'hidden' }}>
+                    <div style={{ height:'100%', width:`${reviewResult.completeness}%`, background: reviewResult.completeness>=70?'var(--green-text)':'var(--accent)', borderRadius:2, transition:'width 0.5s ease' }} />
+                  </div>
+                </div>
+              </div>
+              <button onClick={handleRevise} className="btn-primary" style={{ padding:'5px 14px', fontSize:'0.7rem' }}>
+                依此修改
+              </button>
+            </div>
+
+            {/* Review content — structured cards */}
+            <div style={{ flex:1, overflowY:'auto', padding:'10px 14px', display:'flex', flexDirection:'column', gap:8 }}>
+              {/* Summary */}
+              <div style={{ background:'var(--paper)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--border-light)' }}>
+                <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:4 }}>总结</div>
+                <div style={{ fontSize:'0.76rem', lineHeight:1.55, color:'var(--ink)' }}>{reviewResult.summary}</div>
+              </div>
+
+              {/* Strengths */}
+              {reviewResult.strengths.length>0 && (
+                <div style={{ background:'var(--green-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--green-border)' }}>
+                  <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--green-text)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>优点</div>
+                  <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
+                    {reviewResult.strengths.map((s,i)=>(
+                      <li key={i} style={{ fontSize:'0.74rem', color:'var(--ink)', lineHeight:1.5 }}>
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Weaknesses */}
+              {reviewResult.weaknesses.length>0 && (
+                <div style={{ background:'var(--red-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--red-border)' }}>
+                  <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--red-text)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>待改进</div>
+                  <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
+                    {reviewResult.weaknesses.map((s,i)=>(
+                      <li key={i} style={{ fontSize:'0.74rem', color:'var(--ink)', lineHeight:1.5 }}>
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Suggestions */}
+              {reviewResult.suggestions.length>0 && (
+                <div style={{ background:'var(--accent-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--accent-border)' }}>
+                  <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>建议</div>
+                  <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
+                    {reviewResult.suggestions.map((s,i)=>(
+                      <li key={i} style={{ fontSize:'0.74rem', color:'var(--ink)', lineHeight:1.5 }}>
+                        {s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
-      {/* Review result */}
-      {reviewResult && (
-        <div style={{ borderTop:'1px solid var(--border)', padding:'10px 14px', maxHeight:220, overflowY:'auto', flexShrink:0 }}>
-          <div style={{ fontSize:'0.72rem', fontWeight:600, marginBottom:6, display:'flex', alignItems:'center', gap:8, fontFamily:'Inter,sans-serif' }}>
-            审查结果 · 完整度 {reviewResult.completeness}%
-            <div style={{ flex:1, height:3, background:'var(--border)', borderRadius:1.5, maxWidth:100 }}>
-              <div style={{ height:'100%', width:`${reviewResult.completeness}%`, background: reviewResult.completeness>=70 ? 'var(--green-text)' : 'var(--accent)', borderRadius:1.5 }} />
-            </div>
-          </div>
-          <div style={{ fontSize:'0.76rem', color:'var(--ink-muted)', marginBottom:4 }}>{reviewResult.summary}</div>
-          {reviewResult.strengths.length>0 && <div style={{ fontSize:'0.7rem', marginBottom:2 }}><span style={{ color:'var(--green-text)',fontWeight:600 }}>✓ {reviewResult.strengths.join('；')}</span></div>}
-          {reviewResult.weaknesses.length>0 && <div style={{ fontSize:'0.7rem', marginBottom:2 }}><span style={{ color:'var(--red-text)',fontWeight:600 }}>✗ {reviewResult.weaknesses.join('；')}</span></div>}
-          {reviewResult.suggestions.length>0 && <div style={{ fontSize:'0.7rem', color:'var(--ink-muted)' }}><span style={{fontWeight:600}}>建议：</span>{reviewResult.suggestions.join('；')}</div>}
-          <div style={{ marginTop:8 }}>
-            <button onClick={handleRevise} className="btn-primary" style={{ fontSize:'0.72rem', padding:'5px 14px' }}>依据审核结果修改</button>
-          </div>
-        </div>
-      )}
       {reviewError && (
         <div style={{ borderTop:'1px solid var(--red-border)', padding:'8px 14px', fontSize:'0.72rem', color:'var(--red-text)', flexShrink:0, display:'flex', alignItems:'center', gap:8 }}>
           {reviewError}
@@ -236,7 +306,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
         <div style={{ flex:1 }} />
         <button onClick={openSaveDialog}
           className="btn-primary" style={{ padding:'5px 16px', fontSize:'0.72rem' }}>
-          {saved ? '✓ 已保存' : '保存'}
+          {saved ? '已保存' : '保存'}
         </button>
       </div>
 
@@ -264,6 +334,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
           </div>
         </div>
       )}
+      <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
     </div>
   );
 }
