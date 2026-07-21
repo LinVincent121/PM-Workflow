@@ -4,7 +4,7 @@ import { listWorkflowDefs } from '@/lib/skill-loader';
 
 export const runtime = 'nodejs';
 
-const SKILLS_DIR = path.join(process.cwd(), '..', 'pm-skills');
+const SKILLS_DIR = path.join(process.cwd(), 'pm-skills');
 
 export async function GET() {
   try {

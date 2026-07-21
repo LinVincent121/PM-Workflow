@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import type { WorkflowDef } from '@/types';
 
-const SKILLS_ROOT = path.join(process.cwd(), '..', 'pm-skills');
+const SKILLS_ROOT = path.join(process.cwd(), 'pm-skills');
 
 /**
  * Read a SKILL.md file and return its full Markdown content.
