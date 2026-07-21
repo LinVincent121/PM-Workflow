@@ -29,6 +29,7 @@ export default function WorkflowChatPage() {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorContent, setEditorContent] = useState('');
   const [importedMsgIdx, setImportedMsgIdx] = useState<number | null>(null);
+  const [editingMsgIdx, setEditingMsgIdx] = useState<number | null>(null); // which message the editor was opened for
   const [pendingRevise, setPendingRevise] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -159,6 +160,8 @@ export default function WorkflowChatPage() {
   function openEditor(content: string, msgIdx: number) {
     setEditorContent(content);
     setEditorOpen(true);
+    // When opening, set the 'currently editing' message index so we can mark it imported later
+    setEditingMsgIdx(msgIdx);
   }
 
   function closeEditor() {
@@ -166,12 +169,12 @@ export default function WorkflowChatPage() {
   }
 
   function handleImportDone() {
-    // Mark the msg that had its content opened in editor as imported
-    if (importedMsgIdx !== null) return; // already marked
-    // find which message content matches editor content
-    const idx = messages.findIndex(m => m.role === 'assistant' && m.content === editorContent);
-    if (idx >= 0) setImportedMsgIdx(idx);
+    // Mark the message that was being edited as imported
+    if (editingMsgIdx !== null) {
+      setImportedMsgIdx(editingMsgIdx);
+    }
     setEditorOpen(false);
+    setEditingMsgIdx(null);
   }
 
   return (

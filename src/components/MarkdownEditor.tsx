@@ -36,13 +36,12 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   const [saved, setSaved] = useState(false);
   const [outputId, setOutputId] = useState<string | null>(null);
   const [versionCount, setVersionCount] = useState(1);
-  const [autoGeneratingTitle, setAutoGeneratingTitle] = useState(false);
+  const [imported, setImported] = useState(false);
+  const [savedOutputId, setSavedOutputId] = useState<string | null>(null); // saved md reference for revise
   const [miniChatOpen, setMiniChatOpen] = useState(false);
   const [miniMessages, setMiniMessages] = useState<MiniMessage[]>([]);
   const [miniInput, setMiniInput] = useState('');
   const [miniSending, setMiniSending] = useState(false);
-  const [imported, setImported] = useState(false);
-  const [savedOutputId, setSavedOutputId] = useState<string | null>(null); // saved md reference for revise
   const miniBottomRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -55,6 +54,51 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   }, []);
 
   function handleContentChange(val: string) { setContent(val); setSaved(false); autoSave(val); }
+
+  // ── Editable review: user can modify review cards directly ──
+  function updateReviewSummary(text: string) {
+    if (!reviewResult) return;
+    setReviewResult({ ...reviewResult, summary: text });
+  }
+  function updateReviewStrength(idx: number, text: string) {
+    if (!reviewResult) return;
+    const arr = [...reviewResult.strengths]; arr[idx] = text;
+    setReviewResult({ ...reviewResult, strengths: arr });
+  }
+  function addReviewStrength() {
+    if (!reviewResult) return;
+    setReviewResult({ ...reviewResult, strengths: [...reviewResult.strengths, ''] });
+  }
+  function removeReviewStrength(idx: number) {
+    if (!reviewResult) return;
+    setReviewResult({ ...reviewResult, strengths: reviewResult.strengths.filter((_,i) => i !== idx) });
+  }
+  function updateReviewWeakness(idx: number, text: string) {
+    if (!reviewResult) return;
+    const arr = [...reviewResult.weaknesses]; arr[idx] = text;
+    setReviewResult({ ...reviewResult, weaknesses: arr });
+  }
+  function addReviewWeakness() {
+    if (!reviewResult) return;
+    setReviewResult({ ...reviewResult, weaknesses: [...reviewResult.weaknesses, ''] });
+  }
+  function removeReviewWeakness(idx: number) {
+    if (!reviewResult) return;
+    setReviewResult({ ...reviewResult, weaknesses: reviewResult.weaknesses.filter((_,i) => i !== idx) });
+  }
+  function updateReviewSuggestion(idx: number, text: string) {
+    if (!reviewResult) return;
+    const arr = [...reviewResult.suggestions]; arr[idx] = text;
+    setReviewResult({ ...reviewResult, suggestions: arr });
+  }
+  function addReviewSuggestion() {
+    if (!reviewResult) return;
+    setReviewResult({ ...reviewResult, suggestions: [...reviewResult.suggestions, ''] });
+  }
+  function removeReviewSuggestion(idx: number) {
+    if (!reviewResult) return;
+    setReviewResult({ ...reviewResult, suggestions: reviewResult.suggestions.filter((_,i) => i !== idx) });
+  }
 
   // Show result — either latest or from history
   const displayedResult = viewingHistoryIdx !== null
@@ -222,13 +266,10 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
 
   async function openSaveDialog() {
     setShowSaveDialog(true);
-    if (!outputId && content.trim()) {
-      setAutoGeneratingTitle(true);
-      try {
-        const res = await fetch('/api/outputs/generate-title', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ content: content.substring(0,2000) }) });
-        if (res.ok) { const data = await res.json(); if (data.title) setSaveTitle(data.title); }
-      } catch {}
-      setAutoGeneratingTitle(false);
+    // Use a simple default title — skip the slow AI title generation
+    if (!outputId && !saveTitle) {
+      const defaultTitle = `${workflowId || '文档'}_报告_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}`;
+      setSaveTitle(defaultTitle);
     }
   }
 
@@ -348,33 +389,61 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
               </div>
             )}
 
-            {/* Review cards */}
+            {/* Review cards — editable inline */}
             <div style={{ flex:1, overflowY:'auto', padding:'10px 14px', display:'flex', flexDirection:'column', gap:8 }}>
               <div style={{ background:'var(--paper)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--border-light)' }}>
                 <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:4 }}>总结</div>
-                <div style={{ fontSize:'0.76rem', lineHeight:1.55 }}>{displayedResult.summary}</div>
+                <textarea value={displayedResult.summary} onChange={e => updateReviewSummary(e.target.value)}
+                  style={{ width:'100%', padding:'6px 8px', border:'1px solid var(--border-light)', borderRadius:3, fontSize:'0.74rem', lineHeight:1.5, resize:'vertical', fontFamily:'inherit', background:'white', minHeight:50 }} />
               </div>
               {displayedResult.strengths.length>0 && (
                 <div style={{ background:'var(--green-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--green-border)' }}>
-                  <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--green-text)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>优点</div>
-                  <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
-                    {displayedResult.strengths.map((s,i)=>(<li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>))}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                    <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--green-text)', textTransform:'uppercase', letterSpacing:'0.04em' }}>优点</div>
+                    <button onClick={addReviewStrength} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.62rem', color:'var(--green-text)', fontFamily:'inherit' }}>+ 添加</button>
+                  </div>
+                  <ul style={{ margin:0, paddingLeft:6, display:'flex', flexDirection:'column', gap:4, listStyle:'none' }}>
+                    {displayedResult.strengths.map((s,i)=>(
+                      <li key={i} style={{ display:'flex', gap:4, alignItems:'flex-start' }}>
+                        <input value={s} onChange={e => updateReviewStrength(i, e.target.value)}
+                          style={{ flex:1, padding:'4px 8px', border:'1px solid var(--green-border)', borderRadius:2, fontSize:'0.72rem', fontFamily:'inherit', background:'white' }} />
+                        <button onClick={() => removeReviewStrength(i)} title="删除" style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.7rem', color:'var(--ink-faint)', padding:'2px' }}>×</button>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
               {displayedResult.weaknesses.length>0 && (
                 <div style={{ background:'var(--red-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--red-border)' }}>
-                  <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--red-text)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>待改进</div>
-                  <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
-                    {displayedResult.weaknesses.map((s,i)=>(<li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>))}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                    <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--red-text)', textTransform:'uppercase', letterSpacing:'0.04em' }}>待改进</div>
+                    <button onClick={addReviewWeakness} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.62rem', color:'var(--red-text)', fontFamily:'inherit' }}>+ 添加</button>
+                  </div>
+                  <ul style={{ margin:0, paddingLeft:6, display:'flex', flexDirection:'column', gap:4, listStyle:'none' }}>
+                    {displayedResult.weaknesses.map((s,i)=>(
+                      <li key={i} style={{ display:'flex', gap:4, alignItems:'flex-start' }}>
+                        <input value={s} onChange={e => updateReviewWeakness(i, e.target.value)}
+                          style={{ flex:1, padding:'4px 8px', border:'1px solid var(--red-border)', borderRadius:2, fontSize:'0.72rem', fontFamily:'inherit', background:'white' }} />
+                        <button onClick={() => removeReviewWeakness(i)} title="删除" style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.7rem', color:'var(--ink-faint)', padding:'2px' }}>×</button>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
               {displayedResult.suggestions.length>0 && (
                 <div style={{ background:'var(--accent-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--accent-border)' }}>
-                  <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>建议</div>
-                  <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
-                    {displayedResult.suggestions.map((s,i)=>(<li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>))}
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:6 }}>
+                    <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.04em' }}>建议</div>
+                    <button onClick={addReviewSuggestion} style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.62rem', color:'var(--accent)', fontFamily:'inherit' }}>+ 添加</button>
+                  </div>
+                  <ul style={{ margin:0, paddingLeft:6, display:'flex', flexDirection:'column', gap:4, listStyle:'none' }}>
+                    {displayedResult.suggestions.map((s,i)=>(
+                      <li key={i} style={{ display:'flex', gap:4, alignItems:'flex-start' }}>
+                        <input value={s} onChange={e => updateReviewSuggestion(i, e.target.value)}
+                          style={{ flex:1, padding:'4px 8px', border:'1px solid var(--accent-border)', borderRadius:2, fontSize:'0.72rem', fontFamily:'inherit', background:'white' }} />
+                        <button onClick={() => removeReviewSuggestion(i)} title="删除" style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.7rem', color:'var(--ink-faint)', padding:'2px' }}>×</button>
+                      </li>
+                    ))}
                   </ul>
                 </div>
               )}
@@ -435,7 +504,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
             <div style={{ marginBottom:12 }}>
               <label style={{ display:'block', fontSize:'0.76rem', fontWeight:500, marginBottom:4, color:'var(--ink-muted)' }}>标题</label>
               <input className="input" value={saveTitle} onChange={e=>setSaveTitle(e.target.value)}
-                placeholder={autoGeneratingTitle?'AI 正在生成标题…':'6-15字标题'} maxLength={32} disabled={autoGeneratingTitle} />
+                placeholder="6-15字标题" maxLength={32} />
             </div>
             <div style={{ marginBottom:18 }}>
               <label style={{ display:'block', fontSize:'0.76rem', fontWeight:500, marginBottom:4, color:'var(--ink-muted)' }}>版本号</label>
