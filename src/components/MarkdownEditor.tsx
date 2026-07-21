@@ -137,7 +137,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   }
 
   return (
-    <div style={{ flex: '0 0 50%', display:'flex', flexDirection:'column', height:'100%', background:'white', borderLeft:'1px solid var(--border)', position:'relative' }}>
+    <div style={{ flex: '0 0 50%', display:'flex', flexDirection:'column', background:'white', borderLeft:'1px solid var(--border)', position:'relative', minWidth:340 }}>
       {/* Review loading overlay — frosted glass */}
       {reviewing && (
         <div style={{ position:'absolute', inset:0, zIndex:50, background:'rgba(255,255,255,0.75)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:10 }}>

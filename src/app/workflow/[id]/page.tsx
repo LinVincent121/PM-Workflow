@@ -178,8 +178,10 @@ export default function WorkflowChatPage() {
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar />
 
-      {/* Chat area */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: editorOpen ? '1px solid var(--border)' : 'none' }}>
+      {/* Chat + Editor flex container */}
+      <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+        {/* Chat area */}
+        <div style={{ flex: editorOpen ? '0 0 50%' : 1, display:'flex', flexDirection:'column', overflow:'hidden', borderRight: editorOpen ? '1px solid var(--border)' : 'none' }}>
         {/* Header */}
         <header style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', background:'white', display:'flex', alignItems:'center', gap:12, flexShrink:0, height:48 }}>
           <Link href="/" style={{ color:'var(--ink-faint)', textDecoration:'none', fontSize:'0.8rem', display:'flex', alignItems:'center', gap:4 }}>
@@ -350,6 +352,7 @@ export default function WorkflowChatPage() {
           onImported={handleImportDone}
         />
       )}
+      </div>{/* close chat+editor flex container */}
     </div>
   );
 }
