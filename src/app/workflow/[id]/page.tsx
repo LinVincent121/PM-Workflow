@@ -28,7 +28,7 @@ export default function WorkflowChatPage() {
   const [phaseExpanded, setPhaseExpanded] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorContent, setEditorContent] = useState('');
-  const [importedMessageIdx, setImportedMessageIdx] = useState<number | null>(null);
+  const [importedMsgIdx, setImportedMsgIdx] = useState<number | null>(null);
   const [pendingRevise, setPendingRevise] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -155,48 +155,51 @@ export default function WorkflowChatPage() {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); }
   }
 
-  function handleOpenEditor(content: string, msgIdx: number) {
+  // ── Editor helpers ──
+  function openEditor(content: string, msgIdx: number) {
     setEditorContent(content);
     setEditorOpen(true);
-    setImportedMessageIdx(msgIdx);
   }
 
-  // Debug: ensure editorOpen/importerMessageIdx don't interfere with each other
-  function handleCloseEditor() {
+  function closeEditor() {
     setEditorOpen(false);
-    setImportedMessageIdx(null);
   }
 
-  function handleEditorImported() {}
+  function handleImportDone() {
+    // Mark the msg that had its content opened in editor as imported
+    if (importedMsgIdx !== null) return; // already marked
+    // find which message content matches editor content
+    const idx = messages.findIndex(m => m.role === 'assistant' && m.content === editorContent);
+    if (idx >= 0) setImportedMsgIdx(idx);
+    setEditorOpen(false);
+  }
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar />
 
-      {/* Chat area — 50% when editor open */}
-      <div style={{ flex: editorOpen ? '0 0 50%' : 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: editorOpen ? '1px solid var(--border)' : 'none' }}>
-        {/* Header bar */}
+      {/* Chat area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRight: editorOpen ? '1px solid var(--border)' : 'none' }}>
+        {/* Header */}
         <header style={{ padding:'10px 24px', borderBottom:'1px solid var(--border)', background:'white', display:'flex', alignItems:'center', gap:12, flexShrink:0, height:48 }}>
           <Link href="/" style={{ color:'var(--ink-faint)', textDecoration:'none', fontSize:'0.8rem', display:'flex', alignItems:'center', gap:4 }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M10 3L4 8l6 5"/></svg>
             首页
           </Link>
           <span style={{ color:'var(--ink-ghost)' }}>/</span>
-          <span style={{ fontFamily:'"Inter",sans-serif', fontWeight:600, fontSize:'0.88rem', letterSpacing:'-0.01em' }}>{workflowName}</span>
-
+          <span style={{ fontFamily:'Inter,sans-serif', fontWeight:600, fontSize:'0.88rem', letterSpacing:'-0.01em' }}>{workflowName}</span>
           <div style={{ flex:1 }} />
 
-          {/* Editor toggle button — always visible on chat page */}
+          {/* Toggle editor button */}
           <button onClick={() => {
-            if (editorOpen) { handleCloseEditor(); }
+            if (editorOpen) { closeEditor(); }
             else {
               const lastAi = [...messages].reverse().find(m => m.role === 'assistant');
-              if (lastAi) handleOpenEditor(lastAi.content, messages.indexOf(lastAi));
+              if (lastAi) openEditor(lastAi.content, messages.indexOf(lastAi));
               else setEditorOpen(true);
             }
           }}
-          className="btn-ghost" style={{ padding:'4px 14px', fontSize:'0.72rem', display:'flex', alignItems:'center', gap:5 }}
-          title={editorOpen ? '收起编辑器' : '打开编辑器'}>
+          className="btn-ghost" style={{ padding:'4px 14px', fontSize:'0.72rem', display:'flex', alignItems:'center', gap:5 }}>
             <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><path d="M3 10h10M3 6h7"/><rect x="2" y="2" width="12" height="12" rx="1.5"/></svg>
             {editorOpen ? '收起编辑器' : '打开编辑器'}
           </button>
@@ -269,16 +272,18 @@ export default function WorkflowChatPage() {
                     <Markdown content={m.content} />
                     {m.content && m.content.length > 20 && (
                       <div style={{ marginTop:10, display:'flex', justifyContent:'flex-end' }}>
-                        <button onClick={() => handleOpenEditor(m.content, i)}
+                        <button onClick={() => {
+                          if (importedMsgIdx === i) return;
+                          openEditor(m.content, i);
+                        }}
                           style={{
-                            background: importedMessageIdx === i ? 'var(--green-bg)' : 'var(--accent-bg)',
-                            border: importedMessageIdx === i ? '1px solid var(--green-border)' : '1px solid var(--accent-border)',
+                            background: importedMsgIdx === i ? 'var(--green-bg)' : 'var(--accent-bg)',
+                            border: importedMsgIdx === i ? '1px solid var(--green-border)' : '1px solid var(--accent-border)',
                             borderRadius:3, padding:'4px 12px', fontSize:'0.7rem',
-                            color: importedMessageIdx === i ? 'var(--green-text)' : 'var(--accent)',
-                            cursor: 'pointer', fontFamily:'inherit', fontWeight:500,
-                          }}
-                          disabled={importedMessageIdx === i}>
-                          {importedMessageIdx === i ? '已导入' : '导入编辑'}
+                            color: importedMsgIdx === i ? 'var(--green-text)' : 'var(--accent)',
+                            cursor: importedMsgIdx === i ? 'default' : 'pointer', fontFamily:'inherit', fontWeight:500,
+                          }}>
+                          {importedMsgIdx === i ? '已导入' : '导入编辑'}
                         </button>
                       </div>
                     )}
@@ -303,7 +308,7 @@ export default function WorkflowChatPage() {
           </div>
         )}
 
-        {/* Input area */}
+        {/* Input */}
         <div style={{ padding:'14px 32px 20px', borderTop:'1px solid var(--border)', background:'white', flexShrink:0 }}>
           <div style={{ maxWidth:800, margin:'0 auto' }}>
             <div style={{ display:'flex', gap:10, alignItems:'flex-end' }}>
@@ -333,21 +338,17 @@ export default function WorkflowChatPage() {
         </div>
       </div>
 
-      {/* Markdown Editor panel — 50% */}
+      {/* Markdown Editor */}
       {editorOpen && (
-        <div style={{ flex: '0 0 50%', height: '100%', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <MarkdownEditor
-            initialContent={editorContent}
-            workflowId={id}
-            sessionId={sessionId || ''}
-            onClose={handleCloseEditor}
-            onTitleGenerated={() => {}}
-            onReviseRequest={(msg) => setPendingRevise(msg)}
-            onImported={() => {
-              setEditorOpen(false);
-            }}
-          />
-        </div>
+        <MarkdownEditor
+          initialContent={editorContent}
+          workflowId={id}
+          sessionId={sessionId || ''}
+          onClose={closeEditor}
+          onTitleGenerated={() => {}}
+          onReviseRequest={(msg) => setPendingRevise(msg)}
+          onImported={handleImportDone}
+        />
       )}
     </div>
   );

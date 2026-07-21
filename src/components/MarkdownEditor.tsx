@@ -101,7 +101,9 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   }
 
   function importRevision(text: string) {
-    setContent(text); setMiniChatOpen(false); setMiniMessages([]);
+    setContent(text);
+    setMiniChatOpen(false);
+    setMiniMessages([]);
     setImported(true);
     onImported?.();
   }
@@ -135,16 +137,16 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   }
 
   return (
-    <div style={{ flex: 1, display:'flex', flexDirection:'column', height:'100%', background:'white', borderLeft:'1px solid var(--border)', position:'relative', minWidth:340 }}>
-      {/* Review loading overlay */}
+    <div style={{ flex: '0 0 50%', display:'flex', flexDirection:'column', height:'100%', background:'white', borderLeft:'1px solid var(--border)', position:'relative' }}>
+      {/* Review loading overlay — frosted glass */}
       {reviewing && (
         <div style={{ position:'absolute', inset:0, zIndex:50, background:'rgba(255,255,255,0.75)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:10 }}>
           <div style={{ width:32, height:32, border:'3px solid var(--border)', borderTop:'3px solid var(--accent)', borderRadius:'50%', animation:'spin 0.8s linear infinite' }} />
-          <span style={{ fontSize:'0.82rem', fontWeight:500, color:'var(--ink-muted)' }}>AI 审查中…</span>
+          <span style={{ fontSize:'0.85rem', fontWeight:500, color:'var(--ink-muted)' }}>AI 审查中…</span>
         </div>
       )}
 
-      {/* Toolbar */}
+      {/* Toolbar — always visible */}
       <div style={{ padding:'8px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', gap:8, flexShrink:0, height:48 }}>
         <button onClick={onClose} title="收起编辑器"
           className="btn-ghost" style={{ padding:'4px 10px', fontSize:'0.72rem', display:'flex', alignItems:'center', gap:3 }}>
@@ -152,8 +154,11 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
           收起
         </button>
 
-        {/* Import status */}
-        {imported && <span style={{ fontSize:'0.66rem', color:'var(--green-text)', background:'var(--green-bg)', padding:'2px 8px', borderRadius:3, fontWeight:500 }}>已导入</span>}
+        {imported && (
+          <span style={{ fontSize:'0.66rem', color:'var(--green-text)', background:'var(--green-bg)', padding:'2px 8px', borderRadius:3, fontWeight:500 }}>
+            已导入
+          </span>
+        )}
 
         <div style={{ flex:1 }} />
 
@@ -176,9 +181,9 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
         </div>
       </div>
 
-      {/* Main area: editor/preview on top, review result on bottom */}
+      {/* Body: editor+review split */}
       <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-        {/* Editor/Preview — top half (or full if no review) */}
+        {/* Editor/Preview — top half (full if no review) */}
         <div style={{ flex: reviewResult ? '0 0 50%' : 1, overflow:'auto', borderBottom: reviewResult ? '1px solid var(--border)' : 'none' }}>
           {viewMode === 'edit' ? (
             <textarea value={content} onChange={e => handleContentChange(e.target.value)}
@@ -189,13 +194,12 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
           )}
         </div>
 
-        {/* Review result — bottom 50% */}
+        {/* Review result — bottom half */}
         {reviewResult && (
           <div style={{ flex: '0 0 50%', overflowY:'auto', display:'flex', flexDirection:'column' }}>
-            {/* Header */}
             <div style={{ padding:'10px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0, background:'var(--sidebar-bg)' }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                <span style={{ fontSize:'0.76rem', fontWeight:600, fontFamily:'Inter,sans-serif' }}>审查结果</span>
+                <span style={{ fontSize:'0.76rem', fontWeight:600 }}>审查结果</span>
                 <div style={{ display:'flex', alignItems:'center', gap:6 }}>
                   <span style={{ fontSize:'0.66rem', color:'var(--ink-muted)' }}>完整度</span>
                   <span style={{ fontSize:'0.82rem', fontWeight:700, fontFamily:'"JetBrains Mono",monospace', color: reviewResult.completeness>=70?'var(--green-text)':'var(--accent)' }}>
@@ -211,51 +215,40 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
               </button>
             </div>
 
-            {/* Review content — structured cards */}
             <div style={{ flex:1, overflowY:'auto', padding:'10px 14px', display:'flex', flexDirection:'column', gap:8 }}>
-              {/* Summary */}
               <div style={{ background:'var(--paper)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--border-light)' }}>
                 <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--ink-faint)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:4 }}>总结</div>
-                <div style={{ fontSize:'0.76rem', lineHeight:1.55, color:'var(--ink)' }}>{reviewResult.summary}</div>
+                <div style={{ fontSize:'0.76rem', lineHeight:1.55 }}>{reviewResult.summary}</div>
               </div>
 
-              {/* Strengths */}
               {reviewResult.strengths.length>0 && (
                 <div style={{ background:'var(--green-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--green-border)' }}>
                   <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--green-text)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>优点</div>
                   <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
                     {reviewResult.strengths.map((s,i)=>(
-                      <li key={i} style={{ fontSize:'0.74rem', color:'var(--ink)', lineHeight:1.5 }}>
-                        {s}
-                      </li>
+                      <li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              {/* Weaknesses */}
               {reviewResult.weaknesses.length>0 && (
                 <div style={{ background:'var(--red-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--red-border)' }}>
                   <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--red-text)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>待改进</div>
                   <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
                     {reviewResult.weaknesses.map((s,i)=>(
-                      <li key={i} style={{ fontSize:'0.74rem', color:'var(--ink)', lineHeight:1.5 }}>
-                        {s}
-                      </li>
+                      <li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>
                     ))}
                   </ul>
                 </div>
               )}
 
-              {/* Suggestions */}
               {reviewResult.suggestions.length>0 && (
                 <div style={{ background:'var(--accent-bg)', borderRadius:4, padding:'10px 14px', border:'1px solid var(--accent-border)' }}>
                   <div style={{ fontSize:'0.66rem', fontWeight:600, color:'var(--accent)', textTransform:'uppercase', letterSpacing:'0.04em', marginBottom:6 }}>建议</div>
                   <ul style={{ margin:0, paddingLeft:16, display:'flex', flexDirection:'column', gap:3 }}>
                     {reviewResult.suggestions.map((s,i)=>(
-                      <li key={i} style={{ fontSize:'0.74rem', color:'var(--ink)', lineHeight:1.5 }}>
-                        {s}
-                      </li>
+                      <li key={i} style={{ fontSize:'0.74rem', lineHeight:1.5 }}>{s}</li>
                     ))}
                   </ul>
                 </div>
@@ -275,9 +268,9 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
       {/* Mini chat */}
       {miniChatOpen && (
         <div style={{ borderTop:'1px solid var(--border)', flexShrink:0, display:'flex', flexDirection:'column', maxHeight:260 }}>
-          <div style={{ padding:'6px 14px', fontSize:'0.72rem', fontWeight:600, borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', fontFamily:'Inter,sans-serif' }}>
+          <div style={{ padding:'6px 14px', fontSize:'0.72rem', fontWeight:600, borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
             AI 修改建议
-            <button onClick={()=>setMiniChatOpen(false)} style={{ background:'none',border:'none',cursor:'pointer',fontSize:'0.8rem',color:'var(--ink-faint)',fontFamily:'inherit' }}>✕</button>
+            <button onClick={()=>setMiniChatOpen(false)} style={{ background:'none',border:'none',cursor:'pointer',fontSize:'0.8rem',color:'var(--ink-faint)' }}>✕</button>
           </div>
           <div style={{ flex:1, overflowY:'auto', padding:'8px 14px', display:'flex', flexDirection:'column', gap:6 }}>
             {miniMessages.map((m,i)=>(
@@ -319,7 +312,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
         <div className="modal-backdrop" style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.25)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center' }}
           onClick={e=>{if(e.target===e.currentTarget)setShowSaveDialog(false);}}>
           <div className="modal-content" style={{ background:'white', borderRadius:5, padding:'24px 28px', minWidth:350, border:'1px solid var(--border)' }}>
-            <div style={{ fontFamily:'Inter,sans-serif', fontWeight:600, fontSize:'0.92rem', marginBottom:16 }}>保存工作产出</div>
+            <div style={{ fontWeight:600, fontSize:'0.92rem', marginBottom:16 }}>保存工作产出</div>
             <div style={{ marginBottom:12 }}>
               <label style={{ display:'block', fontSize:'0.76rem', fontWeight:500, marginBottom:4, color:'var(--ink-muted)' }}>标题</label>
               <input className="input" value={saveTitle} onChange={e=>setSaveTitle(e.target.value)}
