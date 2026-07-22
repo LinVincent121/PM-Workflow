@@ -34,7 +34,6 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   const [saveVersion, setSaveVersion] = useState('V1.0.0');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [outputId, setOutputId] = useState<string | null>(null);
   const [versionCount, setVersionCount] = useState(1);
   const [imported, setImported] = useState(false);
   const [savedOutputId, setSavedOutputId] = useState<string | null>(null); // saved md reference for revise
@@ -45,8 +44,23 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   const miniBottomRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Folder state for save dialog
+  const [folders, setFolders] = useState<{ folderId: string; name: string; description: string; outputCount: number }[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [showNewFolderForm, setShowNewFolderForm] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [newFolderDesc, setNewFolderDesc] = useState('');
+  const [creatingFolder, setCreatingFolder] = useState(false);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
+
   useEffect(() => { setContent(initialContent); }, [initialContent]);
   useEffect(() => { miniBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [miniMessages]);
+  // Auto-dismiss save toast
+  useEffect(() => {
+    if (!saveToast) return;
+    const t = setTimeout(() => setSaveToast(null), 2000);
+    return () => clearTimeout(t);
+  }, [saveToast]);
 
   const autoSave = useCallback((text: string) => {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
@@ -151,7 +165,6 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
           const d = await res.json();
           fileRef = d.outputId;
           setSavedOutputId(d.outputId);
-          setOutputId(d.outputId);
           setSaved(true);
         }
       } catch {}
@@ -248,33 +261,84 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   }
 
   // ── Save ──
+
   async function handleSave() {
-    if (!saveTitle.trim() || !saveVersion.trim()) return;
+    const errs: string[] = [];
+    if (!saveTitle.trim()) errs.push('请填写标题');
+    if (!saveVersion.trim()) errs.push('请填写版本号');
+    if (!selectedFolderId) errs.push('请选择文件夹');
+    if (errs.length > 0) {
+      setSaveToast(errs.join('；'));
+      return;
+    }
     setSaving(true);
     try {
-      const res = await fetch('/api/outputs', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ outputId: outputId||undefined, sessionId, workflowId, title: saveTitle.trim(), version: saveVersion.trim(), content }) });
-      if (!res.ok) throw new Error('保存失败');
+      const res = await fetch('/api/outputs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId, workflowId,
+          title: saveTitle.trim(),
+          version: saveVersion.trim(),
+          content,
+          folderId: selectedFolderId,
+        }),
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: '保存失败' }));
+        setSaveToast(errData.error || '保存失败');
+        setSaving(false);
+        return;
+      }
       const data = await res.json();
-      if (data.outputId && !outputId) { setOutputId(data.outputId); setSavedOutputId(data.outputId); }
-      setSaved(true); setVersionCount(prev=>prev+1);
+      if (data.outputId) setSavedOutputId(data.outputId);
+      setSaved(true);
+      setVersionCount(prev => prev + 1);
       const parts = saveVersion.match(/^V(\d+)\.(\d+)\.(\d+)$/i);
-      if (parts) setSaveVersion(`V${parts[1]}.${parts[2]}.${parseInt(parts[3],10)+1}`);
+      if (parts) setSaveVersion(`V${parts[1]}.${parts[2]}.${parseInt(parts[3], 10) + 1}`);
       setShowSaveDialog(false);
+      setSaveToast('保存成功');
       onTitleGenerated?.(saveTitle.trim());
-    } catch {} finally { setSaving(false); }
+    } catch {
+      setSaveToast('保存失败，请重试');
+    } finally { setSaving(false); }
   }
 
   async function openSaveDialog() {
+    // Load folders
+    try {
+      const res = await fetch('/api/folders');
+      if (res.ok) setFolders(await res.json());
+    } catch { }
     setShowSaveDialog(true);
-    // Use a simple default title — skip the slow AI title generation
-    if (!outputId && !saveTitle) {
+    if (!saveTitle) {
       const defaultTitle = `${workflowId || '文档'}_报告_${new Date().toLocaleDateString('zh-CN').replace(/\//g, '-')}`;
       setSaveTitle(defaultTitle);
     }
   }
 
+  async function handleCreateFolder() {
+    if (!newFolderName.trim()) return;
+    setCreatingFolder(true);
+    try {
+      const res = await fetch('/api/folders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newFolderName.trim(), description: newFolderDesc.trim() }),
+      });
+      if (res.ok) {
+        const folder = await res.json();
+        setFolders(prev => [folder, ...prev]);
+        setSelectedFolderId(folder.folderId);
+        setShowNewFolderForm(false);
+        setNewFolderName('');
+        setNewFolderDesc('');
+      }
+    } catch { } finally { setCreatingFolder(false); }
+  }
+
   return (
-    <div style={{ flex: '0 0 50%', display:'flex', flexDirection:'column', background:'white', borderLeft:'1px solid var(--border)', position:'relative', minWidth:340 }}>
+    <div style={{ flex: 1, display:'flex', flexDirection:'column', background:'white', borderLeft:'1px solid var(--border)', position:'relative', minWidth:340 }}>
       {/* Review loading overlay */}
       {reviewing && (
         <div style={{ position:'absolute', inset:0, zIndex:50, background:'rgba(255,255,255,0.75)', backdropFilter:'blur(4px)', display:'flex', alignItems:'center', justifyContent:'center', flexDirection:'column', gap:10 }}>
@@ -497,26 +561,91 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
 
       {/* Save Dialog */}
       {showSaveDialog && (
-        <div className="modal-backdrop" style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.25)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center' }}
-          onClick={e=>{if(e.target===e.currentTarget)setShowSaveDialog(false);}}>
-          <div className="modal-content" style={{ background:'white', borderRadius:5, padding:'24px 28px', minWidth:350, border:'1px solid var(--border)' }}>
+        <div className="modal-backdrop" style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.25)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center' }}>
+          <div className="modal-content" style={{ background:'white', borderRadius:5, padding:'24px 28px', minWidth:380, maxWidth:440, border:'1px solid var(--border)', maxHeight:'90vh', overflowY:'auto' }}>
             <div style={{ fontWeight:600, fontSize:'0.92rem', marginBottom:16 }}>保存工作产出</div>
             <div style={{ marginBottom:12 }}>
-              <label style={{ display:'block', fontSize:'0.76rem', fontWeight:500, marginBottom:4, color:'var(--ink-muted)' }}>标题</label>
+              <label style={{ display:'block', fontSize:'0.76rem', fontWeight:500, marginBottom:4, color:'var(--ink-muted)' }}>标题 <span style={{ color:'var(--red-text)' }}>*</span></label>
               <input className="input" value={saveTitle} onChange={e=>setSaveTitle(e.target.value)}
                 placeholder="6-15字标题" maxLength={32} />
             </div>
-            <div style={{ marginBottom:18 }}>
-              <label style={{ display:'block', fontSize:'0.76rem', fontWeight:500, marginBottom:4, color:'var(--ink-muted)' }}>版本号</label>
+            <div style={{ marginBottom:12 }}>
+              <label style={{ display:'block', fontSize:'0.76rem', fontWeight:500, marginBottom:4, color:'var(--ink-muted)' }}>版本号 <span style={{ color:'var(--red-text)' }}>*</span></label>
               <input className="input" value={saveVersion} onChange={e=>setSaveVersion(e.target.value)} placeholder="V1.0.0" />
             </div>
+
+            {/* Folder selection — required */}
+            <div style={{ marginBottom:14 }}>
+              <label style={{ display:'block', fontSize:'0.76rem', fontWeight:500, marginBottom:6, color:'var(--ink-muted)' }}>
+                保存到文件夹 <span style={{ color:'var(--red-text)' }}>*</span>
+              </label>
+              {folders.length > 0 ? (
+                <div style={{ display:'flex', flexDirection:'column', gap:4, maxHeight:140, overflowY:'auto', marginBottom:8 }}>
+                  {folders.map(f => (
+                    <label key={f.folderId} style={{
+                      display:'flex', alignItems:'center', gap:8, padding:'6px 10px', borderRadius:3, cursor:'pointer',
+                      background: selectedFolderId === f.folderId ? 'var(--accent-bg)' : 'transparent',
+                      border: selectedFolderId === f.folderId ? '1px solid var(--accent-border)' : '1px solid transparent',
+                      fontSize:'0.76rem',
+                    }}>
+                      <input type="radio" name="folder" checked={selectedFolderId === f.folderId}
+                        onChange={() => setSelectedFolderId(f.folderId)} style={{ accentColor:'var(--accent)' }} />
+                      <span style={{ flex:1, fontWeight:500 }}>{f.name}</span>
+                      <span style={{ fontSize:'0.64rem', color:'var(--ink-faint)' }}>{f.outputCount} 项</span>
+                    </label>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ fontSize:'0.72rem', color:'var(--ink-faint)', marginBottom:8, padding:'6px 0' }}>
+                  暂无文件夹，请先创建一个
+                </div>
+              )}
+
+              {/* New folder form */}
+              {showNewFolderForm ? (
+                <div style={{ border:'1px solid var(--accent-border)', borderRadius:4, padding:'10px 12px', background:'var(--accent-bg)' }}>
+                  <input className="input" value={newFolderName} onChange={e => setNewFolderName(e.target.value)}
+                    placeholder="文件夹名称" maxLength={20}
+                    style={{ marginBottom:6, fontSize:'0.76rem' }} />
+                  <input className="input" value={newFolderDesc} onChange={e => setNewFolderDesc(e.target.value)}
+                    placeholder="简介（可选）" maxLength={50}
+                    style={{ marginBottom:8, fontSize:'0.76rem' }} />
+                  <div style={{ display:'flex', gap:6, justifyContent:'flex-end' }}>
+                    <button onClick={() => { setShowNewFolderForm(false); setNewFolderName(''); setNewFolderDesc(''); }}
+                      className="btn-ghost" style={{ fontSize:'0.68rem' }}>取消</button>
+                    <button onClick={handleCreateFolder} disabled={creatingFolder || !newFolderName.trim()}
+                      className="btn-primary" style={{ fontSize:'0.68rem', padding:'4px 12px' }}>
+                      {creatingFolder ? '创建中…' : '创建文件夹'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setShowNewFolderForm(true)}
+                  className="btn-ghost" style={{ fontSize:'0.68rem', color:'var(--accent)', padding:'2px 6px' }}>
+                  + 新建文件夹
+                </button>
+              )}
+            </div>
+
             <div style={{ display:'flex', justifyContent:'flex-end', gap:8 }}>
-              <button onClick={()=>setShowSaveDialog(false)} className="btn-ghost">取消</button>
-              <button onClick={handleSave} disabled={saving||!saveTitle.trim()} className="btn-primary" style={{ fontSize:'0.82rem' }}>
-                {saving?'保存中…':'保存'}
+              <button onClick={() => setShowSaveDialog(false)} className="btn-ghost">取消</button>
+              <button onClick={handleSave} disabled={saving} className="btn-primary" style={{ fontSize:'0.82rem' }}>
+                {saving ? '保存中…' : '保存'}
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Save toast */}
+      {saveToast && (
+        <div style={{
+          position:'fixed', bottom:32, left:'50%', transform:'translateX(-50%)', zIndex:300,
+          background: saveToast === '保存成功' ? 'var(--green-text)' : 'var(--red-text)',
+          color:'white', padding:'10px 24px', borderRadius:4, fontSize:'0.82rem', fontWeight:500,
+          boxShadow:'0 4px 16px rgba(0,0,0,0.15)',
+        }}>
+          {saveToast}
         </div>
       )}
 

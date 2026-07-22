@@ -50,6 +50,7 @@ db.exec(`
     title TEXT NOT NULL,
     version TEXT NOT NULL,
     content TEXT NOT NULL,
+    folder_id TEXT,
     created_at TEXT DEFAULT (datetime('now')),
     updated_at TEXT DEFAULT (datetime('now'))
   );
@@ -63,7 +64,18 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now')),
     FOREIGN KEY (output_id) REFERENCES work_outputs(output_id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS folders (
+    folder_id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
 `);
+
+// Migration for folder_id column added after initial creation
+ensureColumn('work_outputs', 'folder_id', 'TEXT', 'NULL');
 
 // ─── Session CRUD ───
 
@@ -171,10 +183,17 @@ function toISO(val: string): string {
 
 // ─── Work Outputs CRUD ───
 
-export function createOutput(outputId: string, sessionId: string, workflowId: string, title: string, version: string, content: string) {
+export function findDuplicateOutput(folderId: string, title: string, version: string): boolean {
+  const row = db.prepare(
+    'SELECT 1 FROM work_outputs WHERE folder_id = ? AND LOWER(title) = LOWER(?) AND LOWER(version) = LOWER(?) LIMIT 1'
+  ).get(folderId, title, version);
+  return !!row;
+}
+
+export function createOutput(outputId: string, sessionId: string, workflowId: string, title: string, version: string, content: string, folderId?: string | null) {
   const now = new Date().toISOString();
-  db.prepare('INSERT INTO work_outputs (output_id, session_id, workflow_id, title, version, content, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?)')
-    .run(outputId, sessionId, workflowId, title, version, content, now, now);
+  db.prepare('INSERT INTO work_outputs (output_id, session_id, workflow_id, title, version, content, folder_id, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(outputId, sessionId, workflowId, title, version, content, folderId || null, now, now);
 }
 
 export function updateOutput(outputId: string, title: string, version: string, content: string) {
@@ -189,15 +208,24 @@ export function getOutput(outputId: string) {
   return {
     outputId: row.output_id, sessionId: row.session_id, workflowId: row.workflow_id,
     title: row.title, version: row.version, content: row.content,
+    folderId: row.folder_id || null,
     createdAt: toISO(row.created_at), updatedAt: toISO(row.updated_at),
   };
 }
 
-export function listOutputs() {
-  const rows = db.prepare('SELECT * FROM work_outputs ORDER BY updated_at DESC').all() as any[];
+export function listOutputs(folderId?: string | null) {
+  let rows: any[];
+  if (folderId === null || folderId === '__unfiled__') {
+    rows = db.prepare('SELECT * FROM work_outputs WHERE folder_id IS NULL ORDER BY updated_at DESC').all();
+  } else if (folderId) {
+    rows = db.prepare('SELECT * FROM work_outputs WHERE folder_id = ? ORDER BY updated_at DESC').all(folderId);
+  } else {
+    rows = db.prepare('SELECT * FROM work_outputs ORDER BY updated_at DESC').all();
+  }
   return rows.map((r: any) => ({
     outputId: r.output_id, sessionId: r.session_id, workflowId: r.workflow_id,
     title: r.title, version: r.version, content: r.content,
+    folderId: r.folder_id || null,
     createdAt: toISO(r.created_at), updatedAt: toISO(r.updated_at),
   }));
 }
@@ -223,4 +251,58 @@ export function getOutputVersions(outputId: string): { versionId: string; conten
     versionId: r.version_id, content: r.content, version: r.version,
     title: r.title, createdAt: toISO(r.created_at),
   }));
+}
+
+// ─── Folder CRUD ───
+
+export function createFolder(name: string, description: string) {
+  const folderId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  db.prepare('INSERT INTO folders (folder_id, name, description, created_at, updated_at) VALUES (?,?,?,?,?)')
+    .run(folderId, name, description, now, now);
+  return { folderId, name, description, createdAt: now, updatedAt: now, outputCount: 0 };
+}
+
+export interface FolderRow {
+  folderId: string; name: string; description: string;
+  createdAt: string; updatedAt: string; outputCount: number;
+}
+
+export function listFolders(): FolderRow[] {
+  const rows = db.prepare(`
+    SELECT f.*, COUNT(o.output_id) as output_count
+    FROM folders f LEFT JOIN work_outputs o ON f.folder_id = o.folder_id
+    GROUP BY f.folder_id
+    ORDER BY f.updated_at DESC
+  `).all() as any[];
+  return rows.map((r: any) => ({
+    folderId: r.folder_id, name: r.name, description: r.description,
+    createdAt: toISO(r.created_at), updatedAt: toISO(r.updated_at),
+    outputCount: Number(r.output_count),
+  }));
+}
+
+export function getFolder(folderId: string) {
+  const row = db.prepare('SELECT * FROM folders WHERE folder_id = ?').get(folderId) as any;
+  if (!row) return null;
+  return {
+    folderId: row.folder_id, name: row.name, description: row.description,
+    createdAt: toISO(row.created_at), updatedAt: toISO(row.updated_at),
+  };
+}
+
+export function updateFolder(folderId: string, name: string, description: string) {
+  const now = new Date().toISOString();
+  db.prepare('UPDATE folders SET name=?, description=?, updated_at=? WHERE folder_id=?')
+    .run(name, description, now, folderId);
+}
+
+export function deleteFolder(folderId: string) {
+  // Cascade delete: delete output versions first, then outputs, then folder
+  const outputs = db.prepare('SELECT output_id FROM work_outputs WHERE folder_id = ?').all(folderId) as { output_id: string }[];
+  for (const o of outputs) {
+    db.prepare('DELETE FROM output_versions WHERE output_id = ?').run(o.output_id);
+  }
+  db.prepare('DELETE FROM work_outputs WHERE folder_id = ?').run(folderId);
+  db.prepare('DELETE FROM folders WHERE folder_id = ?').run(folderId);
 }
