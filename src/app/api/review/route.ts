@@ -1,7 +1,8 @@
 import { NextRequest } from 'next/server';
-import { getSettings } from '@/lib/db';
+import { getSettings, addAuditLog } from '@/lib/db';
 import { callLLM } from '@/lib/llm/client';
 import { loadWorkflowDef } from '@/lib/skill-loader';
+import { currentUser } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
@@ -10,7 +11,7 @@ export async function POST(request: NextRequest) {
     const { content, workflowId } = await request.json();
     if (!content) return Response.json({ error: '缺少 content' }, { status: 400 });
 
-    const settings = getSettings();
+    const settings = getSettings(currentUser()?.userId);
     if (!settings.llmApiKey) {
       return Response.json({ error: '请先配置 LLM API Key' }, { status: 400 });
     }
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
       // Handle possible markdown code fences
       const jsonStr = text.replace(/^```json\s*/, '').replace(/^```\s*/, '').replace(/```$/, '').trim();
       const review = JSON.parse(jsonStr);
+      if (currentUser()) addAuditLog(currentUser()!.userId, 'review_output', workflowId || '', review.summary || '审查完成');
       return Response.json({
         summary: review.summary || '审查完成',
         strengths: review.strengths || [],
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
       });
     } catch {
       // Fallback: return the raw text as summary
+      if (currentUser()) addAuditLog(currentUser()!.userId, 'review_output', workflowId || '', text.substring(0, 4000));
       return Response.json({
         summary: text.substring(0, 200),
         strengths: [],

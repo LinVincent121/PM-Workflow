@@ -1,19 +1,21 @@
 import { NextRequest } from 'next/server';
 import { getSettings } from '@/lib/db';
 import { processMessageStream } from '@/lib/orchestrator';
+import { currentUser } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { sessionId, workflowId, message } = body;
+    const { sessionId, workflowId, message, files } = body;
 
     if (!message || (!sessionId && !workflowId)) {
       return Response.json({ error: '缺少必填参数' }, { status: 400 });
     }
 
-    const settings = getSettings();
+    const user = currentUser();
+    const settings = getSettings(user?.userId);
     if (!settings.llmApiKey) {
       return Response.json({ error: '请先在设置页配置 LLM API Key' }, { status: 400 });
     }
@@ -29,7 +31,7 @@ export async function POST(request: NextRequest) {
       async start(controller) {
         try {
           for await (const chunk of processMessageStream(
-            { sessionId: sessionId || undefined, workflowId: workflowId || undefined, message },
+            { sessionId: sessionId || undefined, workflowId: workflowId || undefined, message, files: files || undefined, userId: user?.userId },
             config,
           )) {
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));

@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Sidebar from '@/components/Sidebar';
+import { useRouter } from 'next/navigation';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [llmApiKey, setLlmApiKey] = useState('');
   const [llmBaseUrl, setLlmBaseUrl] = useState('');
@@ -28,14 +30,15 @@ export default function SettingsPage() {
       const res = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setSaved(true); setTimeout(()=>setSaved(false),3000);
+      setSaved(true);
+      setTimeout(()=>router.push('/chat'), 900);
     } catch (err: any) { setError(err.message); }
   }
 
   return (
     <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
       <Sidebar />
-      <main style={{ flex:1, overflow:'auto', padding:'40px 48px' }}>
+      <main style={{ flex:1, overflow:'auto', padding:'40px 48px' }} className="resp-main">
         <header style={{ marginBottom: 28 }}>
           <h1 className="display" style={{ fontSize:'clamp(1.4rem, 2vw, 1.7rem)', marginBottom:6 }}>模型设置</h1>
           <p className="body-text">配置大模型连接参数。支持所有 OpenAI 兼容 API 提供商。</p>
@@ -47,8 +50,12 @@ export default function SettingsPage() {
           </div>
         )}
         {saved && (
-          <div style={{ background:'var(--green-bg)', border:'1px solid var(--green-border)', borderRadius:4, padding:'10px 16px', marginBottom:18, fontSize:'0.82rem', color:'var(--green-text)', maxWidth:500 }}>
-            设置已保存
+          <div className="account-modal-backdrop" role="status" aria-live="polite">
+            <section className="account-modal settings-success-modal">
+              <div className="settings-success-icon">✓</div>
+              <h2>设置已保存</h2>
+              <p>即将进入新建任务页面</p>
+            </section>
           </div>
         )}
 

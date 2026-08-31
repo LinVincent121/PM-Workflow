@@ -67,6 +67,7 @@ export default function Sidebar() {
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [sessions, setSessions] = useState<SessionItem[]>([]);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -90,6 +91,7 @@ export default function Sidebar() {
   }, [renamingId]);
 
   const isHome = pathname === '/';
+  const isChat = pathname === '/chat';
   const isWorkflow = pathname === '/workflow' || pathname.startsWith('/workflow/');
   const isSkills = pathname === '/skills';
   const isSettings = pathname === '/settings';
@@ -98,7 +100,7 @@ export default function Sidebar() {
   function handleDelete(sid: string) {
     if (!confirm('确定删除此对话？')) return;
     fetch('/api/sessions', { method:'DELETE', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessionId:sid}) })
-      .then(() => loadSessions()).catch(() => {});
+      .then(() => { loadSessions(); if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('sid') === sid) router.push('/chat'); }).catch(() => {});
   }
 
   function startRename(s: SessionItem) {
@@ -114,21 +116,41 @@ export default function Sidebar() {
   }
 
   function handleClickSession(s: SessionItem) {
-    if (s.status === 'unread') {
+    if (s.status === 'unread' || s.status === 'streaming') {
       fetch('/api/sessions/mark-read', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({sessionId:s.sessionId}) }).catch(() => {});
     }
-    router.push(`/workflow/${s.workflowId}?sid=${s.sessionId}`);
+    setMobileOpen(false);
+    // Chat sessions use /chat page, workflow sessions use /workflow/[id]
+    if (s.workflowId === 'chat') {
+      router.push(`/chat?sid=${s.sessionId}`);
+    } else {
+      router.push(`/workflow/${s.workflowId}?sid=${s.sessionId}`);
+    }
   }
+
+  // Close mobile sidebar on route change
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   const grouped = useMemo(() => groupSessions(sessions), [sessions]);
 
   return (
-    <aside style={{
-      width: collapsed ? 56 : 232, minWidth: collapsed ? 56 : 232,
-      background: 'var(--sidebar-bg)', borderRight: '1px solid var(--border)',
-      display: 'flex', flexDirection: 'column', transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
-      overflow: 'hidden', userSelect: 'none',
-    }}>
+    <>
+      {/* Mobile hamburger */}
+      <button className="mobile-hamburger" onClick={() => setMobileOpen(true)} aria-label="打开菜单">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+          <path d="M2 4h12M2 8h10M2 12h8"/>
+        </svg>
+      </button>
+
+      {/* Mobile backdrop */}
+      {mobileOpen && <div className="sidebar-backdrop" onClick={() => setMobileOpen(false)} />}
+
+      <aside style={{
+        width: collapsed ? 56 : 232, minWidth: collapsed ? 56 : 232,
+        background: 'var(--sidebar-bg)', borderRight: '1px solid var(--border)',
+        display: 'flex', flexDirection: 'column', transition: 'width 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
+        overflow: 'hidden', userSelect: 'none',
+      }} className={mobileOpen ? 'sidebar-overlay' : ''}>
       {/* Header */}
       <div style={{
         padding: collapsed ? '14px 0' : '14px 16px',
@@ -154,7 +176,7 @@ export default function Sidebar() {
 
       {/* Navigation */}
       <nav style={{ padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 1 }}>
-        <NavItem href="/"        icon={Icons.plus}     label="新建任务" collapsed={collapsed} active={isHome} />
+        <NavItem href="/chat"    icon={Icons.plus}     label="新建任务" collapsed={collapsed} active={isChat} />
         <NavItem href="/workflow" icon={Icons.workflow} label="工作流"   collapsed={collapsed} active={isWorkflow && !isHome} />
         <NavItem href="/skills"   icon={Icons.skills}   label="技能库"   collapsed={collapsed} active={isSkills} />
         <NavItem href="/outputs"  icon={Icons.outputs}  label="工作产出" collapsed={collapsed} active={isOutputs} />
@@ -218,7 +240,7 @@ export default function Sidebar() {
                       )}
                     </button>
                   )}
-                  {!collapsed && hoverId === s.sessionId && renamingId !== s.sessionId && s.status !== 'streaming' && (
+                  {!collapsed && hoverId === s.sessionId && renamingId !== s.sessionId && (
                     <div style={{ position: 'absolute', right: 4, top: '50%', transform: 'translateY(-50%)', display: 'flex', gap: 2 }}>
                       <button onClick={e => { e.stopPropagation(); startRename(s); }}
                         style={{ background: 'var(--white)', border: '1px solid var(--border)', cursor: 'pointer', fontSize: '0.58rem', padding: '2px 5px', color: 'var(--ink-muted)', borderRadius: 2, fontFamily: 'inherit' }}>重命名</button>
@@ -250,6 +272,7 @@ export default function Sidebar() {
         </Link>
       </div>
     </aside>
+    </>
   );
 }
 

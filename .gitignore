@@ -28,3 +28,7 @@ pm-workflow-assistant/
 *.db-wal
 *.sqlite
 tsconfig.tsbuildinfo
+data/uploads/
+data/backups/
+test-results/
+.claude/

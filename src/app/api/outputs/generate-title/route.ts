@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
-import { getSettings } from '@/lib/db';
+import { getSettings, addAuditLog } from '@/lib/db';
 import { callLLM } from '@/lib/llm/client';
+import { currentUser } from '@/lib/auth';
 
 export const runtime = 'nodejs';
 
@@ -9,7 +10,7 @@ export async function POST(request: NextRequest) {
     const { content } = await request.json();
     if (!content) return Response.json({ error: '缺少 content' }, { status: 400 });
 
-    const settings = getSettings();
+    const settings = getSettings(currentUser()?.userId);
     if (!settings.llmApiKey) {
       return Response.json({ error: '请先配置 LLM API Key' }, { status: 400 });
     }
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
     ]);
 
     const title = result.content.trim().replace(/^["「『]|["」』]$/g, '').substring(0, 15);
+    if (currentUser()) addAuditLog(currentUser()!.userId, 'generate_output_title', '', title);
     return Response.json({ title });
   } catch (err: any) {
     return Response.json({ error: err.message }, { status: 500 });

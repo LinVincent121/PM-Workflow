@@ -1,448 +1,66 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Sidebar from '@/components/Sidebar';
-
-interface WorkflowCard {
-  id: string; name: string; emoji: string; description: string; skillCount: number; estimatedTime: string;
-}
-
-const WF_META: Record<string, { label: string }> = {
-  'idea-refinement':    { label: '想法完善' },
-  'competitive-intel':  { label: '竞品分析' },
-  'business-strategy':  { label: '商业战略' },
-  'prd-delivery':       { label: 'PRD 交付' },
-  'prioritization':     { label: '需求排布' },
-  'launch-pipeline':    { label: '发布流程' },
-  'incident-response':  { label: '事故响应' },
-  'build-vs-buy':       { label: '自建外购' },
-  'activation-loop':    { label: '激活优化' },
-  'agent-orchestrator': { label: 'Agent 编排' },
-};
-
-// Full workflow descriptions for detail modal
-const WF_FULL: Record<string, string> = {
-  'launch-pipeline': `## 产品发布全流程
-
-**触发场景**：我们要在下个月发布一个新功能，帮我走一遍从准备到上线的全流程
-
-### 阶段 1 — 上市前情报收集
-company-research → 竞争对手在做什么类似发布？
-pestel-analysis → 宏观环境有没有风险？
-
-### 阶段 2 — 定位与信息准备
-positioning-statement → 一句话定位
-press-release → 逆向撰写新闻稿（Amazon PR/FAQ 风格）
-
-### 阶段 3 — 干系人对齐
-stakeholder-identification → 谁需要被说服？
-stakeholder-mapping → 权力/利益矩阵
-stakeholder-engagement-advisor → 怎么沟通？
-
-### 阶段 4 — 发布执行
-eol-message → 端对端消息策略
-organic-growth-advisor → 发布后有机增长计划
-
-### 阶段 5 — 发布后复盘
-business-health-diagnostic → 发布后业务健康检查
-derisk-measurement-advisor → 度量指标验证
-
-**产出物**：完整的 Go-To-Market 文档（竞品情报 + 定位声明 + 新闻稿草稿 + 干系人沟通计划 + 发布后增长策略 + 复盘框架）`,
-  'incident-response': `## 产品事故响应与恢复
-
-**触发场景**：我们的核心功能出了严重问题，用户大量流失，需要紧急应对
-
-### 阶段 1 — 紧急诊断
-business-health-diagnostic + problem-framing-canvas
-
-### 阶段 2 — 对内沟通
-problem-statement + eol-message
-
-### 阶段 3 — 对外沟通
-press-release + positioning-statement
-
-### 阶段 4 — 根因修复
-epic-hypothesis + user-story-splitting + incoming-request-advisor
-
-### 阶段 5 — 预防机制
-pol-probe + derisk-measurement-advisor
-
-**产出物**：事故响应时间线、对内对外沟通模板、修复任务清单、预防性监控方案`,
-  'build-vs-buy': `## Build vs Buy 决策框架
-
-**触发场景**：我们团队在争论自建 AI 推荐系统还是采购第三方服务
-
-### 阶段 1 — 市场扫描
-tam-sam-som-calculator + company-research
-
-### 阶段 2 — 财务建模
-finance-based-pricing-advisor + saas-economics-efficiency-metrics + feature-investment-advisor
-
-### 阶段 3 — 技术评估
-context-engineering-advisor + agent-orchestration-advisor
-
-### 阶段 4 — 决策输出
-prioritization-advisor + epic-hypothesis
-
-**产出物**：决策备忘录（成本对比表 + 风险评估 + 推荐方案 + 验证里程碑）`,
-  'activation-loop': `## 新用户激活优化
-
-**触发场景**：新用户在注册后 24 小时内流失率高达 70%，需要系统性解决
-
-### 阶段 1 — 旅程映射
-customer-journey-map + jobs-to-be-done
-
-### 阶段 2 — 数据诊断
-saas-revenue-growth-metrics + finance-metrics-quickref
-
-### 阶段 3 — 假设生成
-opportunity-solution-tree + pol-probe-advisor
-
-### 阶段 4 — 方案设计
-lean-ux-canvas + proto-persona + user-story
-
-### 阶段 5 — 实验设计
-discovery-interview-prep + discovery-process
-
-**产出物**：激活漏斗分析报告、用户分段时间线、3-5 个可测试的激活方案、A/B 实验设计文档`,
-  'idea-refinement': `## 产品想法完善
-
-**触发场景**：我有一个产品想法，但不确定是否靠谱，帮我系统地完善它
-
-### 阶段 1 — 想法初探
-problem-statement + problem-framing-canvas
-
-### 阶段 2 — 用户深描
-proto-persona + jobs-to-be-done + customer-journey-map
-
-### 阶段 3 — 价值定位
-positioning-statement + recommendation-canvas
-
-### 阶段 4 — 方案构想
-lean-ux-canvas + epic-hypothesis
-
-### 阶段 5 — 约束与风险
-derisk-measurement-advisor + pol-probe-advisor
-
-### 阶段 6 — 输出汇总
-storyboard + eol-message
-
-**产出物**：完整想法完善文档（问题陈述、用户画像、JTBD、定位声明、Lean UX 画布、Epic 假设、风险登记册、故事板）`,
-  'competitive-intel': `## 竞品分析报告
-
-**触发场景**：我需要一份完整的竞品分析报告，用于 Q3 战略规划
-
-### 阶段 1 — 竞品识别与分类
-company-research + stakeholder-identification
-
-### 阶段 2 — 产品功能对比
-positioning-statement + problem-statement + user-story-mapping
-
-### 阶段 3 — 市场与行业分析
-pestel-analysis + tam-sam-som-calculator + saas-revenue-growth-metrics
-
-### 阶段 4 — 商业模式与定价
-finance-based-pricing-advisor + feature-investment-advisor + saas-economics-efficiency-metrics
-
-### 阶段 5 — 用户与市场感知
-customer-journey-map + discovery-interview-prep
-
-### 阶段 6 — 风险与机会
-opportunity-solution-tree + derisk-measurement-advisor
-
-### 阶段 7 — 报告整合
-storyboard + press-release + eol-message
-
-**产出物**：竞品画像矩阵、功能对比表、定价分析、用户旅程对比、市场机会地图、风险登记册、差异化叙事`,
-  'business-strategy': `## 商业分析与战略布局
-
-**触发场景**：基于完善后的产品想法和竞品分析，需要完整的商业分析报告
-
-### 阶段 1 — 战略定位
-positioning-workshop + product-strategy-session
-
-### 阶段 2 — 市场规模与机会
-tam-sam-som-calculator + pestel-analysis
-
-### 阶段 3 — 商业模式设计
-recommendation-canvas + feature-investment-advisor + organic-growth-advisor
-
-### 阶段 4 — 财务计划
-finance-based-pricing-advisor + saas-economics-efficiency-metrics + saas-revenue-growth-metrics
-
-### 阶段 5 — 投资方向
-feature-investment-advisor + epic-hypothesis + prioritization-advisor
-
-### 阶段 6 — 风险评估
-derisk-measurement-advisor + business-health-diagnostic
-
-### 阶段 7 — 报告整合
-roadmap-planning + storyboard
-
-**产出物**：战略定位声明、TAM/SAM/SOM 测算、商业模式画布、财务预测模型、投资优先级矩阵、风险登记册、分阶段路线图`,
-  'prd-delivery': `## PRD 与交付
-
-**触发场景**：基于完善的产品想法、竞品分析、商业报告，生成完整的 PRD
-
-### 阶段 1 — Executive Summary
-整合上游的 Epic 假设 + 战略定位
-
-### 阶段 2 — Problem Statement
-problem-statement + problem-framing-canvas
-
-### 阶段 3 — Target Users & Personas
-proto-persona + jobs-to-be-done
-
-### 阶段 4 — Strategic Context
-引用商业报告的 TAM/SAM/SOM、竞品定位对比、财务目标
-
-### 阶段 5 — Solution Overview
-lean-ux-canvas + user-story-mapping + storyboard
-
-### 阶段 6 — Success Metrics
-引用财务计划的 ARPU/LTV/CAC 目标
-
-### 阶段 7 — User Stories & Requirements
-epic-hypothesis + epic-breakdown-advisor + user-story + user-story-splitting
-
-### 阶段 8 — Out of Scope & Dependencies
-incoming-request-advisor + pestel-analysis
-
-**产出物**：完整工程就绪 PRD（问题陈述、用户画像、战略上下文、解决方案、成功指标、用户故事+验收标准、Out of Scope、依赖与风险）`,
-  'prioritization': `## 需求排布
-
-**触发场景**：PRD 完成了，需求很多但资源有限，帮我排优先级
-
-### 阶段 1 — 框架选择
-prioritization-advisor → 推荐 RICE / ICE / Value-Effort / Kano
-
-### 阶段 2 — 需求流入治理
-incoming-request-advisor → 12 段解码报告
-
-### 阶段 3 — 财务与定价影响
-finance-based-pricing-advisor + feature-investment-advisor
-
-### 阶段 4 — Epic 拆解与故事拆分
-epic-breakdown-advisor + user-story-splitting
-
-### 阶段 5 — 风险降低与验证
-derisk-measurement-advisor + pol-probe-advisor
-
-### 阶段 6 — 排布输出
-roadmap-planning + user-story-mapping
-
-**产出物**：优先级排序表、需求解码报告、财务影响评估、Epic 拆解清单、风险登记册、分阶段路线图`,
-  'agent-orchestrator': `## Agent 工作编排助手
-
-**触发场景**：我每周要做竞品分析 + 用户调研汇总 + 路线图更新，帮我设计自动化工作流
-
-### 阶段 1 — 需求采集
-context-engineering-advisor → 理解工作场景、约束条件、战略目标
-
-### 阶段 2 — AI-Shaped 任务判定
-agent-orchestration-advisor → 判定是否适合 Agent 编排
-
-### 阶段 3 — Skill 匹配
-自动检索 Skills 库 → 按关键词+语义+类型匹配
-
-### 阶段 4 — 工作流拓扑设计
-Full Parallel / Pipeline / Hybrid
-
-### 阶段 5 — 边界与交接定义
-每个 Skill 的输入输出契约 + 交接规则
-
-### 阶段 6 — 编排方案生成
-完整编排方案（拓扑图 + Skill 列表 + 契约 + 时间节省估计）
-
-### 阶段 7 — 建议与优化
-skill-authoring-workflow + workshop-facilitation
-
-**产出物**：自动化工作流编排方案、拓扑图、Skill 匹配列表、输入输出契约文档、分周实施计划`,
-};
+import { useEffect, useState } from 'react';
+
+const ArrowUpRight = ({ size = 16 }: { size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 17 17 7" /><path d="M7 7h10v10" /></svg>
+);
+const Check = () => <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12 4 4L19 6" /></svg>;
+const workflows = [
+  ['01', '想法完善', '把一个模糊想法，打磨成值得验证的产品机会。'],
+  ['02', '竞品分析', '从市场、用户到商业模式，建立完整的竞争情报。'],
+  ['03', 'PRD 交付', '将战略上下文转换为工程团队可以直接执行的 PRD。'],
+  ['04', '需求排布', '用 RICE、Kano 等框架，在资源有限时做出更好取舍。'],
+];
 
 export default function HomePage() {
-  const router = useRouter();
-  const [workflows, setWorkflows] = useState<WorkflowCard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [configured, setConfigured] = useState(false);
-  const [input, setInput] = useState('');
-  const [selectedWf, setSelectedWf] = useState<string | null>(null);
-  const [modalWf, setModalWf] = useState<string | null>(null);
-
-  const cardOrder = ['idea-refinement','competitive-intel','business-strategy','prd-delivery','prioritization','launch-pipeline','incident-response','build-vs-buy','activation-loop','agent-orchestrator'];
-
-  useEffect(() => {
-    fetch('/api/workflows').then(r=>r.json()).then(d=>{setWorkflows(d);setLoading(false)}).catch(()=>setLoading(false));
-    fetch('/api/settings').then(r=>r.json()).then(s=>setConfigured(!!s.llmApiKey)).catch(()=>{});
-  }, []);
-
-  function handleSend() {
-    if (!input.trim()) return;
-    if (!configured) { router.push('/settings'); return; }
-    const wfId = selectedWf || 'idea-refinement';
-    fetch('/api/chat', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({workflowId:wfId, message:input.trim()}) })
-      .then(r=>r.json()).then(d=>{ if(d.sessionId) router.push(`/workflow/${wfId}?sid=${d.sessionId}`); }).catch(()=>{});
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [registerOpen, setRegisterOpen] = useState(false);
+  const [registerEmail, setRegisterEmail] = useState('');
+  const [registerPassword, setRegisterPassword] = useState('');
+  const [registerCode, setRegisterCode] = useState('');
+  const [registerMessage, setRegisterMessage] = useState('');
+  const [registerBusy, setRegisterBusy] = useState(false);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const [loginEmail, setLoginEmail] = useState(''); const [loginPassword, setLoginPassword] = useState(''); const [loginMessage, setLoginMessage] = useState(''); const [loginBusy, setLoginBusy] = useState(false);
+  useEffect(() => { fetch('/api/auth/me').then(r => r.ok ? r.json() : null).then(data => setUser(data?.user || null)).catch(() => {}); }, []);
+  async function handleRegister(e: React.FormEvent) {
+    e.preventDefault(); setRegisterBusy(true); setRegisterMessage('');
+    try {
+      const payload = { email: registerEmail, password: registerPassword, ...(registerCode ? { code: registerCode } : {}) };
+      const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const data = await res.json(); if (!res.ok) throw new Error(data.error); if (!registerCode) { setRegisterMessage('验证码已发送，请查收邮箱'); } else { setUser(data.user); setRegisterOpen(false); setRegisterMessage(''); }
+    } catch (err: any) { setRegisterMessage(err.message || '注册失败'); } finally { setRegisterBusy(false); }
   }
-
-  function handleKeyDown(e: React.KeyboardEvent) { if (e.key==='Enter'&&!e.shiftKey) { e.preventDefault(); handleSend(); } }
-
-  function startWorkflow(wfId: string) {
-    if (!configured) { router.push('/settings'); return; }
-    router.push(`/workflow/${wfId}`);
-  }
-
-  const ordered = cardOrder.map(id=>workflows.find(w=>w.id===id)).filter(Boolean) as WorkflowCard[];
-
+  async function handleLogin(e: React.FormEvent) { e.preventDefault(); setLoginBusy(true); setLoginMessage(''); try { const res = await fetch('/api/auth/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email:loginEmail, password:loginPassword }) }); const data = await res.json(); if (!res.ok) throw new Error(data.error); setUser(data.user); setLoginOpen(false); } catch (err:any) { setLoginMessage(err.message || '登录失败'); } finally { setLoginBusy(false); } }
+  async function handleLogout() { await fetch('/api/auth/logout', { method:'POST' }).catch(() => {}); setUser(null); setAccountOpen(false); }
   return (
-    <div style={{ display:'flex', height:'100vh', overflow:'hidden' }}>
-      <Sidebar />
-
-      <main style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden', background:'var(--paper)' }}>
-        {/* Header area */}
-        <div style={{ flex:1, overflow:'auto', padding:'44px 48px 20px', display:'flex', flexDirection:'column', alignItems:'center' }}>
-          <header style={{ marginBottom: 28, textAlign: 'center', maxWidth: 640 }}>
-            <h1 className="display" style={{ fontSize: 'clamp(1.5rem, 2.2vw, 1.8rem)', marginBottom: 8 }}>
-              你好，今天想做什么？
-            </h1>
-            <p className="body-text">
-              选择一个工作流开始结构化的 PM 流程，或直接在输入框中描述你的需求
-            </p>
-          </header>
-
-          {loading ? (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, maxWidth:1080, width:'100%' }}>
-              {Array(10).fill(0).map((_,i)=>(
-                <div key={i} className="skeleton" style={{ height:170 }} />
-              ))}
-            </div>
-          ) : (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(5,1fr)', gap:10, maxWidth:1080, width:'100%' }}>
-              {ordered.map(wf => {
-                const meta = WF_META[wf.id] || { label: wf.name };
-                return (
-                  <div key={wf.id} className="card"
-                    style={{ padding:'16px 14px 14px', display:'flex', flexDirection:'column' }}
-                    onClick={() => startWorkflow(wf.id)}>
-                    {/* Top row: label + detail button */}
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                      <span style={{ fontSize:'0.64rem', fontWeight:600, letterSpacing:'0.04em', textTransform:'uppercase', color:'var(--ink-faint)' }}>
-                        {meta.label}
-                      </span>
-                      {/* Detail button — stop propagation */}
-                      <button onClick={(e) => { e.stopPropagation(); setModalWf(wf.id); }}
-                        title="查看工作流详情"
-                        style={{
-                          background:'transparent', border:'1px solid var(--border)', cursor:'pointer',
-                          fontSize:'0.6rem', color:'var(--ink-faint)', padding:'2px 7px', borderRadius:3,
-                          fontFamily:'inherit', fontWeight:500,
-                        }}
-                        className="tr-color"
-                        onMouseEnter={e1 => { e1.currentTarget.style.color = 'var(--accent)'; e1.currentTarget.style.borderColor = 'var(--accent)'; }}
-                        onMouseLeave={e1 => { e1.currentTarget.style.color = 'var(--ink-faint)'; e1.currentTarget.style.borderColor = 'var(--border)'; }}>
-                        详情
-                      </button>
-                    </div>
-
-                    {/* Title */}
-                    <h3 style={{
-                      fontFamily: '"Inter", sans-serif', fontSize:'0.84rem', fontWeight:600,
-                      marginBottom:6, lineHeight:1.3, letterSpacing:'-0.01em', color:'var(--ink)',
-                    }}>
-                      {wf.name}
-                    </h3>
-
-                    {/* Description */}
-                    <p style={{ fontSize:'0.73rem', color:'var(--ink-muted)', lineHeight:1.5, flex:1, display:'-webkit-box', WebkitLineClamp:2, WebkitBoxOrient:'vertical', overflow:'hidden' }}>
-                      {wf.description}
-                    </p>
-
-                    {/* Footer */}
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:10, fontSize:'0.66rem', color:'var(--ink-faint)', borderTop:'1px solid var(--border-light)', paddingTop:10 }}>
-                      <span style={{ fontFamily:'"JetBrains Mono",monospace' }}>{wf.skillCount} Skills · {wf.estimatedTime}</span>
-                      <span style={{ fontFamily:'"JetBrains Mono",monospace', color:'var(--accent)', fontWeight:500 }}>→</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+    <main className="landing-page">
+      <nav className="landing-nav" aria-label="主导航">
+        <a className="brand-mark" href="/" aria-label="PM Workbench 首页"><span className="brand-dot" /><span>PM <em>Workbench</em></span></a>
+        <button className="mobile-menu" aria-label="打开菜单" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}><span /><span /></button>
+        <div className={`nav-links ${menuOpen ? 'is-open' : ''}`}>
+          <a href="#capabilities" onClick={() => setMenuOpen(false)}>产品能力</a><a href="#workflows" onClick={() => setMenuOpen(false)}>工作流</a><a href="#method" onClick={() => setMenuOpen(false)}>方法论</a>{user ? <><a className="nav-login nav-workbench-link" href="/chat">进入工作台 <ArrowUpRight size={14} /></a><div className="nav-account-wrap"><button className="nav-user-avatar" title={user.email} aria-label="打开账号菜单" onClick={() => setAccountOpen(!accountOpen)}>{user.email.charAt(0).toUpperCase()}</button>{accountOpen && <div className="nav-account-menu"><strong>{user.email}</strong><a href="/account/password">修改密码</a><button onClick={handleLogout}>退出账号</button><button onClick={() => { setAccountOpen(false); setLoginOpen(true); }}>切换账号</button></div>}</div></> : <><button className="nav-login nav-login-quiet" onClick={() => { setLoginOpen(true); setMenuOpen(false); }}>登录</button><button className="nav-login nav-register-button" onClick={() => { setRegisterOpen(true); setMenuOpen(false); }}>注册 <ArrowUpRight size={14} /></button></>}
         </div>
+      </nav>
 
-        {/* Bottom input bar */}
-        <div style={{ padding:'14px 48px 22px', borderTop:'1px solid var(--border)', background:'var(--white)' }}>
-          <div style={{ maxWidth:860, margin:'0 auto' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:8, background:'var(--white)', borderRadius:5, border:'1px solid var(--border)', padding:'6px 14px' }}>
-              {selectedWf && (
-                <span style={{
-                  fontSize:'0.72rem', fontWeight:600, color:'var(--accent)', background:'var(--accent-bg)',
-                  padding:'2px 10px', borderRadius:3, border:'1px solid var(--accent-border)',
-                  whiteSpace:'nowrap', fontFamily: '"Inter", sans-serif',
-                }}>
-                  {ordered.find(w=>w.id===selectedWf)?.name || selectedWf}
-                </span>
-              )}
-              <input
-                type="text" value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKeyDown}
-                placeholder="描述你遇到的问题..."
-                style={{ flex:1, border:'none', background:'transparent', fontSize:'0.86rem', outline:'none', padding:'8px 4px', color:'var(--ink)', fontFamily:'"Inter", system-ui, sans-serif' }} />
+      <section className="hero-section">
+        <div className="hero-copy"><div className="eyebrow"><span className="eyebrow-pulse" /> AI 原生的产品工作方式</div><h1><span className="hero-line">把模糊的产品问题，</span><span className="hero-line hero-accent">变成下一步行动。</span></h1><p className="hero-lede">PM Workbench 把想法、竞品、战略、PRD、发布与复盘，编排成一组可以直接使用的 AI 工作流；还可以帮你审查、改写和完善已有内容。</p><div className="hero-actions"><a className="button button-primary" href="/workflow">探索工作流 <ArrowUpRight /></a><a className="button button-secondary" href="#method">看看它如何工作 <span className="button-arrow">↓</span></a></div><div className="hero-note"><Check /> 10 个结构化工作流&nbsp;&nbsp;·&nbsp;&nbsp;AI 审查修改&nbsp;&nbsp;·&nbsp;&nbsp;支持 OpenAI 兼容模型</div></div>
+        <div className="hero-product" aria-label="PM Workbench 产品预览"><div className="product-window-bar"><div className="window-dots"><i /><i /><i /></div><span>pm-workbench / new-session</span><b>⌘ K</b></div><div className="product-body"><div className="product-sidebar"><strong>PM<span>W</span></strong><div className="side-line active" /><div className="side-line" /><div className="side-line short" /><div className="side-bottom" /></div><div className="product-main"><div className="product-kicker">NEW SESSION <span>·</span> IDEA REFINEMENT</div><h3>让我们把这个想法<br />变成一个可验证的机会。</h3><div className="chat-card user-card">我想做一个帮助独立创作者管理赞助合作的工具。</div><div className="chat-card ai-card"><span className="ai-avatar">✦</span><div><strong>先从问题开始</strong><p>谁正在被什么问题卡住？我们先把用户、场景和未满足的需求说清楚。</p><div className="ai-chips"><span>用户是谁？</span><span>当前替代方案</span></div></div></div><div className="product-input"><span>继续描述你的产品问题…</span><b><ArrowUpRight size={14} /></b></div></div></div><div className="floating-badge badge-top"><span>✦</span> AI 正在编排</div><div className="floating-badge badge-bottom"><span>10</span> workflows ready</div></div>
+      </section>
 
-              {/* Send button with icon */}
-              <button onClick={handleSend} disabled={!input.trim()} className="btn-primary"
-                style={{ padding:'8px 20px', fontSize:'0.82rem', display:'flex', alignItems:'center', gap:5 }}>
-                <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><path d="M14 2L7 9M14 2l-4.5 12L7 9 2 5.5z"/></svg>
-                发送
-              </button>
-            </div>
+      <section className="logo-strip" aria-label="产品能力标签"><span>为产品团队而生</span><i /><strong>战略</strong><strong>探索</strong><strong>交付</strong><strong>增长</strong><strong>AI 运营</strong></section>
+      <section className="statement-section" id="method"><div className="statement-copy-wrap"><p className="section-label">产品工作的真正瓶颈</p><h2>好产品不是从“写一个 PRD”开始的。<br /><span>它从提出正确的问题开始。</span></h2><p className="statement-copy">真正耗时的，从来不是文档排版，而是在不确定中找到方向。Workbench 把那些隐形的思考步骤显性化，让每一次对话都能沉淀为可复用的决策。</p></div><div className="method-visual" aria-label="从问题到决策的工作方式图例"><div className="method-caption">WORKBENCH METHOD <span>01—03</span></div><div className="method-node node-question"><small>01 · 提问</small><strong>我们真正要解决的<br />问题是什么？</strong></div><div className="method-connector"><i /><i /><i /></div><div className="method-node node-evidence"><small>02 · 取证</small><strong>用户、市场与<br />现有数据</strong></div><div className="method-connector"><i /><i /><i /></div><div className="method-node node-decision"><small>03 · 决策</small><strong>下一步最小<br />可验证行动</strong></div></div></section>
 
-            {/* Quick workflow picks */}
-            <div style={{ display:'flex', gap:4, flexWrap:'wrap', marginTop:8, paddingLeft:4 }}>
-              <span style={{ fontSize:'0.66rem', color:'var(--ink-faint)', padding:'4px 4px', fontWeight:500 }}>快速切换：</span>
-              {ordered.map(wf => (
-                <button key={wf.id} onClick={() => setSelectedWf(selectedWf === wf.id ? null : wf.id)}
-                  style={{
-                    background: selectedWf === wf.id ? 'var(--accent)' : 'transparent',
-                    color: selectedWf === wf.id ? 'white' : 'var(--ink-muted)',
-                    border: selectedWf === wf.id ? '1px solid var(--accent)' : '1px solid var(--border)',
-                    cursor:'pointer', fontSize:'0.68rem', padding:'3px 10px', borderRadius:3,
-                    fontFamily:'"Inter", system-ui, sans-serif', fontWeight: selectedWf === wf.id ? 600 : 400,
-                  }} className="tr-color"
-                  onMouseEnter={e => { if (selectedWf !== wf.id) { e.currentTarget.style.borderColor = '#CBD5E1'; e.currentTarget.style.color = 'var(--ink)'; } }}
-                  onMouseLeave={e => { if (selectedWf !== wf.id) { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--ink-muted)'; } }}>
-                  {wf.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </main>
+      <section className="capabilities-section" id="capabilities"><div className="section-heading"><div><p className="section-label">一个工作台，多种工作模式</p><h2>从洞察到交付，<br />每一步都有结构。</h2></div><a href="/workflow" className="text-link">查看全部能力 <ArrowUpRight size={15} /></a></div><div className="capability-grid"><article className="capability-card card-blue"><span className="card-index">01 / 想清楚</span><h3>先把问题想清楚</h3><p>用 JTBD、用户旅程和问题框架，把“感觉应该做”变成可验证的机会假设。</p><div className="ui-shot shot-blue"><div className="shot-toolbar"><i /><i /><span>机会假设画布</span></div><div className="shot-columns"><div><small>用户任务</small><b>找到更快的替代方案</b></div><div><small>核心问题</small><b>决策信息太分散</b></div></div><div className="shot-progress"><span style={{ width:'72%' }} /></div></div></article><article className="capability-card card-dark"><span className="card-index">02 / 做决策</span><h3>让取舍更有依据</h3><p>把竞品、市场、商业模型和风险放进同一张决策桌，快速看到真正重要的变量。</p><div className="ui-shot shot-dark"><div className="shot-toolbar"><i /><i /><span>优先级矩阵</span></div><div className="matrix"><span className="dot dot-a" /><span className="dot dot-b" /><span className="dot dot-c" /><span className="dot dot-d" /></div><div className="shot-axis"><span>影响力</span><span>投入成本</span></div></div></article><article className="capability-card card-lilac"><span className="card-index">03 / 交付</span><h3>交付可以从容一点</h3><p>从战略上下文到用户故事、验收标准和路线图，一次对话生成工程就绪的交付物。</p><div className="ui-shot shot-lilac"><div className="shot-toolbar"><i /><i /><span>工程就绪 PRD</span></div><div className="shot-check"><span><Check /> 用户故事</span><span><Check /> 验收标准</span><span><Check /> 成功指标</span></div></div></article></div><div className="review-highlight"><div><span className="card-index">04 / 审查与修改</span><h3>已有内容，也能继续变好。</h3><p>把 PRD、需求说明、发布文案或研究结论交给 AI 审查：找出逻辑漏洞、信息缺口和表达问题，并给出可直接采纳的修改建议。</p></div><div className="review-shot"><div className="review-toolbar"><span>PRD · 首页改版</span><b>审查完成</b></div><div className="review-row"><span className="review-mark">!</span><div><strong>目标用户描述不够具体</strong><p>建议补充使用场景、频率与当前替代方案。</p></div><em>建议修改</em></div><div className="review-row"><span className="review-mark ok">✓</span><div><strong>成功指标与目标一致</strong><p>留存率、激活率已形成完整指标链路。</p></div><em className="ok-text">已通过</em></div></div></div></section>
 
-      {/* ── Workflow Detail Modal ── */}
-      {modalWf && (
-        <div className="modal-backdrop" style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.3)', zIndex:200, display:'flex', alignItems:'center', justifyContent:'center' }}
-          onClick={() => setModalWf(null)}>
-          <div className="modal-content" style={{
-            background:'white', borderRadius:5, maxWidth:680, width:'90%', maxHeight:'78vh', overflow:'auto',
-            padding:'28px 32px', border:'1px solid var(--border)',
-          }} onClick={e => e.stopPropagation()}>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-              <h2 style={{ fontFamily:'"Inter", sans-serif', fontSize:'1.05rem', fontWeight:650, letterSpacing:'-0.02em' }}>
-                {ordered.find(w=>w.id===modalWf)?.name}
-              </h2>
-              <button onClick={() => setModalWf(null)} className="btn-ghost" style={{ fontSize:'0.76rem' }}>关闭</button>
-            </div>
-            <div style={{ whiteSpace:'pre-wrap', fontSize:'0.84rem', lineHeight:1.7, color:'var(--ink)' }}>
-              {WF_FULL[modalWf] || (ordered.find(w=>w.id===modalWf) ? `${ordered.find(w=>w.id===modalWf)?.name}\n\n${ordered.find(w=>w.id===modalWf)?.description}` : '详情加载中...')}
-            </div>
-            <div style={{ marginTop:24, display:'flex', gap:10 }}>
-              <button onClick={() => { setModalWf(null); startWorkflow(modalWf); }} className="btn-primary">
-                开始此工作流
-              </button>
-              <button onClick={() => setModalWf(null)} className="btn-ghost">关闭</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+      <section className="workflow-section" id="workflows"><div className="workflow-intro"><p className="section-label">THE WORKFLOW LIBRARY</p><h2>不是一个聊天框。<br /><span>是一套产品操作系统。</span></h2><p>每一条工作流都由多个专业 Skill 协作完成，沿着清晰的阶段推进，并在关键节点留下可以继续使用的产出物。</p><a className="button button-primary" href="/workflow">浏览 10 个工作流 <ArrowUpRight /></a></div><div className="workflow-list">{workflows.map(([num, title, desc]) => <a href="/workflow" className="workflow-row" key={num}><span className="workflow-num">{num}</span><div><h3>{title}</h3><p>{desc}</p></div><ArrowUpRight size={19} /></a>)}</div></section>
+      <section className="cta-section"><div className="cta-stamp">PM<br />W</div><p className="section-label">READY WHEN YOU ARE</p><h2>下一次产品讨论，<br /><span>从一个更好的问题开始。</span></h2><p>打开 Workbench，选择一个工作流，或者直接告诉它你正在面对什么。</p><a className="button button-dark" href="/chat">进入 PM Workbench <ArrowUpRight /></a></section>
+      <footer className="landing-footer"><span>© 2025 子修 · PM Workbench</span><span>为好奇的产品人而造。</span><a href="/settings">模型设置 <ArrowUpRight size={13} /></a></footer>
+      {loginOpen && <div className="register-modal-backdrop" role="presentation"><section className="register-modal" role="dialog" aria-modal="true" aria-labelledby="login-title"><button className="register-modal-close" aria-label="关闭登录弹窗" onClick={() => setLoginOpen(false)}>×</button><p className="section-label">WELCOME BACK</p><h2 id="login-title">登录工作台</h2><p className="register-modal-lede">继续你的工作流、对话和产品产出。</p><form onSubmit={handleLogin} className="register-form"><label>邮箱<input className="input" type="email" required value={loginEmail} onChange={e => setLoginEmail(e.target.value)} placeholder="name@qq.com" /></label><label>密码<input className="input" type="password" required value={loginPassword} onChange={e => setLoginPassword(e.target.value)} placeholder="请输入密码" /></label>{loginMessage && <div className="register-message">{loginMessage}</div>}<button className="button button-primary register-submit" disabled={loginBusy}>{loginBusy ? '登录中…' : '登录'}</button></form><p className="register-modal-foot">还没有账号？<button className="modal-inline-link" onClick={() => { setLoginOpen(false); setRegisterOpen(true); }}>立即注册</button></p></section></div>}
+      {registerOpen && <div className="register-modal-backdrop" role="presentation"><section className="register-modal" role="dialog" aria-modal="true" aria-labelledby="register-title"><button className="register-modal-close" aria-label="关闭注册弹窗" onClick={() => setRegisterOpen(false)}>×</button><p className="section-label">JOIN PM WORKBENCH</p><h2 id="register-title">创建你的账号</h2><p className="register-modal-lede">用邮箱注册，保存你的工作流、对话和产品产出。</p><form onSubmit={handleRegister} className="register-form"><label>邮箱<input className="input" type="email" required value={registerEmail} onChange={e => setRegisterEmail(e.target.value)} placeholder="name@qq.com" /></label><label>密码<input className="input" type="password" required minLength={8} value={registerPassword} onChange={e => setRegisterPassword(e.target.value)} placeholder="至少 8 位" /></label><label>邮箱验证码<input className="input" inputMode="numeric" value={registerCode} onChange={e => setRegisterCode(e.target.value)} placeholder="先发送验证码" /></label>{registerMessage && <div className={`register-message ${registerMessage.includes('发送') ? 'is-success' : ''}`}>{registerMessage}</div>}<button className="button button-primary register-submit" disabled={registerBusy}>{registerBusy ? '处理中…' : registerCode ? '完成注册' : '发送验证码'}</button></form><p className="register-modal-foot">已有账号？<button className="modal-inline-link" onClick={() => { setRegisterOpen(false); setLoginOpen(true); }}>去登录</button></p></section></div>}
+    </main>
   );
 }

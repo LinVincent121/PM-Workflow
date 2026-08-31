@@ -1,6 +1,11 @@
 import type { ChatMessage, LLMConfig } from '@/types';
 import { callLLM } from './llm/client';
 
+function textContent(content: ChatMessage['content']): string {
+  if (typeof content === 'string') return content;
+  return content.map((part: any) => part.type === 'text' ? part.text : '').join(' ');
+}
+
 /**
  * Generate a short Chinese title (6-10 characters) from conversation messages.
  */
@@ -10,7 +15,7 @@ export async function generateTitle(
 ): Promise<string> {
   const recent = messages.slice(-6);
   const text = recent
-    .map(m => `${m.role === 'user' ? '用户' : '助手'}: ${m.content.substring(0, 200)}`)
+    .map(m => `${m.role === 'user' ? '用户' : '助手'}: ${textContent(m.content).substring(0, 200)}`)
     .join('\n');
 
   const prompt = [

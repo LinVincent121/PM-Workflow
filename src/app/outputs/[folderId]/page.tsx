@@ -162,7 +162,7 @@ export default function FolderDetailPage() {
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar />
-      <main style={{ flex: 1, overflow: 'auto', padding: '40px 48px' }}>
+      <main style={{ flex: 1, overflow: 'auto', padding: '40px 48px' }} className="resp-main">
         {/* Breadcrumb */}
         <div style={{ marginBottom: 20, display: 'flex', alignItems: 'center', gap: 8, fontSize: '0.78rem' }}>
           <Link href="/outputs" style={{ color: 'var(--ink-faint)', textDecoration: 'none' }}>
@@ -199,7 +199,7 @@ export default function FolderDetailPage() {
                 </p>
               </div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(330px, 1fr))', gap: 12 }} className="resp-grid-outputs">
                 {outputs.map(o => (
                   <div key={o.outputId} className="card" style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}
                     onClick={() => openPreview(o)}>
@@ -238,17 +238,17 @@ export default function FolderDetailPage() {
         {previewOutput && (
           <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.3)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={closePreview}>
-            <div className="modal-content" style={{ background: 'white', borderRadius: 5, maxWidth: 800, width: '95%', height: '90vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)' }}
+            <div className="modal-content resp-modal" style={{ background: 'white', borderRadius: 5, maxWidth: 800, width: '95%', height: '90vh', display: 'flex', flexDirection: 'column', border: '1px solid var(--border)' }}
               onClick={e => e.stopPropagation()}>
               {/* Header */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 32px 0', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '20px 32px 0', flexShrink: 0 }} className="resp-modal-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span className="badge">{previewOutput.version}</span>
                   <span style={{ fontFamily: 'Inter,sans-serif', fontWeight: 600, fontSize: '0.95rem' }}>{previewOutput.title}</span>
                   {editSaving && <span style={{ fontSize: '0.66rem', color: 'var(--ink-faint)' }}>保存中…</span>}
                   {editSaved && !editSaving && <span style={{ fontSize: '0.66rem', color: 'var(--green-text)' }}>已保存</span>}
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }} className="modal-actions">
                   {/* Download button */}
                   <button onClick={handleDownload} className="btn-ghost"
                     style={{ padding: '4px 12px', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: 4 }}>
@@ -271,7 +271,7 @@ export default function FolderDetailPage() {
                   <button onClick={closePreview} className="btn-ghost" style={{ fontSize: '0.74rem' }}>关闭</button>
                 </div>
               </div>
-              <div className="caption" style={{ padding: '8px 32px 12px', flexShrink: 0 }}>
+              <div className="caption resp-modal-caption" style={{ padding: '8px 32px 12px', flexShrink: 0 }}>
                 保存于 {new Date(previewOutput.createdAt).toLocaleString('zh-CN')}
                 {previewOutput.workflowId && (
                   <span style={{ marginLeft: 8 }}>· {WF_LABELS[previewOutput.workflowId] || previewOutput.workflowId}</span>
@@ -279,7 +279,7 @@ export default function FolderDetailPage() {
               </div>
 
               {/* Body */}
-              <div style={{ border: '1px solid var(--border)', borderRadius: 3, margin: '0 32px 24px', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 3, margin: '0 32px 24px', flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }} className="resp-modal-body">
                 {modalMode === 'preview' ? (
                   <div style={{ padding: '14px 18px', background: 'var(--sidebar-bg)', flex: 1, overflow: 'auto' }}>
                     <Markdown content={previewOutput.content} />

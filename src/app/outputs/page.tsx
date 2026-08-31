@@ -111,8 +111,8 @@ export default function OutputsPage() {
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       <Sidebar />
-      <main style={{ flex: 1, overflow: 'auto', padding: '40px 48px' }}>
-        <header style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <main style={{ flex: 1, overflow: 'auto', padding: '40px 48px' }} className="resp-main">
+        <header style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }} className="resp-header">
           <div>
             <h1 className="display" style={{ fontSize: 'clamp(1.4rem, 2vw, 1.7rem)', marginBottom: 6 }}>工作产出</h1>
             <p className="body-text">按文件夹管理保存的工作产出物。</p>
@@ -140,7 +140,7 @@ export default function OutputsPage() {
         )}
 
         {!loading && folders.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 14 }} className="resp-grid-folders">
             {folders.map(f => (
               <div key={f.folderId} className="card" style={{
                 padding: '22px 24px', display: 'flex', flexDirection: 'column', gap: 10,
@@ -216,7 +216,7 @@ export default function OutputsPage() {
         {showCreate && (
           <div className="modal-backdrop" style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.25)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             onClick={e => { if (e.target === e.currentTarget) { setShowCreate(false); setNewName(''); setNewDesc(''); } }}>
-            <div className="modal-content" style={{ background: 'white', borderRadius: 5, padding: '24px 28px', minWidth: 360, border: '1px solid var(--border)' }}>
+            <div className="modal-content resp-modal" style={{ background: 'white', borderRadius: 5, padding: '24px 28px', minWidth: 360, border: '1px solid var(--border)' }}>
               <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: 16 }}>新建文件夹</div>
               <div style={{ marginBottom: 12 }}>
                 <label style={{ display: 'block', fontSize: '0.76rem', fontWeight: 500, marginBottom: 4, color: 'var(--ink-muted)' }}>名称</label>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Markdown from './Markdown';
+import ResizeHandle from './ResizeHandle';
 
 interface ReviewResult {
   summary: string; strengths: string[]; weaknesses: string[]; suggestions: string[]; completeness: number;
@@ -11,24 +12,48 @@ interface HistoryReview {
   result: ReviewResult;
   contentSnapshot: string;
 }
-interface MiniMessage { role: 'user' | 'assistant'; content: string; }
 
 interface Props {
   initialContent: string; workflowId: string; sessionId: string;
   onClose: () => void; onTitleGenerated?: (title: string) => void;
   onReviseRequest?: (message: string) => void;
   onImported?: () => void;
+  onReviewActive?: (active: boolean) => void;
 }
 
-export default function MarkdownEditor({ initialContent, workflowId, sessionId, onClose, onTitleGenerated, onReviseRequest, onImported }: Props) {
+export default function MarkdownEditor({ initialContent, workflowId, sessionId, onClose, onTitleGenerated, onReviseRequest, onImported, onReviewActive }: Props) {
   const [content, setContent] = useState(initialContent);
-  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
+  const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview');
   const [reviewResult, setReviewResult] = useState<ReviewResult | null>(null);
   const [reviewHistory, setReviewHistory] = useState<HistoryReview[]>([]);
   const [viewingHistoryIdx, setViewingHistoryIdx] = useState<number | null>(null);
   const [reviewing, setReviewing] = useState(false);
   const [reviewError, setReviewError] = useState<string | null>(null);
-  const [lastEditTime, setLastEditTime] = useState<Date>(new Date());
+  const [reviewCollapsed, setReviewCollapsed] = useState(false);
+  const [reviewPaneWidth, setReviewPaneWidth] = useState(() => {
+    if (typeof window === 'undefined') return 360;
+    try { const v = localStorage.getItem('pm-review-pane'); return v ? parseInt(v) : 360; } catch { return 360; }
+  });
+  const reviewPaneRef = useRef(reviewPaneWidth);
+  reviewPaneRef.current = reviewPaneWidth;
+
+  // Auto-adjust review pane when review result first appears
+  useEffect(() => {
+    if (!reviewResult || reviewCollapsed) return;
+    // Calculate available width: total window - sidebar (64px) - chat panel width (from parent)
+    // The editor container gets flex:1, so we can use its actual width
+    const editorContainer = document.querySelector('[style*="flex: 1"]') as HTMLElement;
+    const availableWidth = editorContainer ? editorContainer.offsetWidth : (window.innerWidth - 64);
+    const minReviewWidth = Math.floor(availableWidth * 0.45);
+    console.log('[MarkdownEditor] Review appeared, availableWidth:', availableWidth, 'current reviewPaneWidth:', reviewPaneWidth, 'target:', minReviewWidth);
+    if (reviewPaneWidth < minReviewWidth) {
+      const newWidth = Math.min(600, Math.max(300, minReviewWidth));
+      console.log('[MarkdownEditor] Expanding review pane to:', newWidth);
+      setReviewPaneWidth(newWidth);
+    }
+  }, [reviewResult, reviewCollapsed]);
+
+  const [lastEditTime, setLastEditTime] = useState<Date | null>(null);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
   const [saveTitle, setSaveTitle] = useState('');
   const [saveVersion, setSaveVersion] = useState('V1.0.0');
@@ -37,11 +62,6 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   const [versionCount, setVersionCount] = useState(1);
   const [imported, setImported] = useState(false);
   const [savedOutputId, setSavedOutputId] = useState<string | null>(null); // saved md reference for revise
-  const [miniChatOpen, setMiniChatOpen] = useState(false);
-  const [miniMessages, setMiniMessages] = useState<MiniMessage[]>([]);
-  const [miniInput, setMiniInput] = useState('');
-  const [miniSending, setMiniSending] = useState(false);
-  const miniBottomRef = useRef<HTMLDivElement>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Folder state for save dialog
@@ -53,8 +73,107 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [saveToast, setSaveToast] = useState<string | null>(null);
 
-  useEffect(() => { setContent(initialContent); }, [initialContent]);
-  useEffect(() => { miniBottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [miniMessages]);
+  useEffect(() => { setLastEditTime(new Date()); }, []);
+
+  // ── Persist editor session (content + review) across route changes ──
+  const storageKey = `pm-editor-${sessionId}`;
+
+  // Sync content: restore from storage on mount, or use initialContent from import
+  useEffect(() => {
+    if (!sessionId) {
+      setContent(initialContent);
+      return;
+    }
+
+    try {
+      const saved = sessionStorage.getItem(storageKey);
+      console.log('[MarkdownEditor] Restore check:', {
+        hasInitialContent: !!initialContent,
+        initialLength: initialContent?.length,
+        hasSaved: !!saved,
+        sessionId
+      });
+
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        console.log('[MarkdownEditor] Saved data found:', {
+          savedContentLength: parsed.content?.length,
+          hasReviewResult: !!parsed.reviewResult,
+          hasReviewHistory: parsed.reviewHistory?.length > 0
+        });
+
+        // Strategy: Always prefer saved session data over initialContent
+        // Only clear saved data when initialContent is explicitly different (new import)
+
+        // Case 1: initialContent is empty → restore from storage (toggle editor open)
+        if (!initialContent) {
+          console.log('[MarkdownEditor] Case 1: Empty initialContent, restoring from storage');
+          setContent(parsed.content || '');
+          if (parsed.reviewResult) setReviewResult(parsed.reviewResult);
+          if (parsed.reviewHistory) setReviewHistory(parsed.reviewHistory);
+          return;
+        }
+
+        // Case 2: initialContent matches saved → restore (route change or re-open)
+        if (initialContent === parsed.content) {
+          console.log('[MarkdownEditor] Case 2: Exact match, restoring review');
+          setContent(parsed.content);
+          if (parsed.reviewResult) setReviewResult(parsed.reviewResult);
+          if (parsed.reviewHistory) setReviewHistory(parsed.reviewHistory);
+          return;
+        }
+
+        // Case 3: initialContent differs → new import, clear old review
+        // But only if it's meaningfully different (not just whitespace)
+        if (initialContent.trim() !== parsed.content.trim()) {
+          console.log('[MarkdownEditor] Case 3: Different content, clearing review');
+          setContent(initialContent);
+          setReviewResult(null);
+          setReviewHistory([]);
+          setReviewCollapsed(false);
+          return;
+        }
+
+        // Case 4: Same content (minor whitespace diff) → restore review
+        console.log('[MarkdownEditor] Case 4: Same content with whitespace diff, restoring review');
+        setContent(initialContent);
+        if (parsed.reviewResult) setReviewResult(parsed.reviewResult);
+        if (parsed.reviewHistory) setReviewHistory(parsed.reviewHistory);
+        return;
+      }
+    } catch (err) {
+      console.error('[MarkdownEditor] Restore error:', err);
+    }
+
+    // No saved data, use initialContent
+    console.log('[MarkdownEditor] No saved data, using initialContent');
+    setContent(initialContent);
+  }, [initialContent, sessionId]);
+
+  // Save session to storage whenever content or review changes
+  useEffect(() => {
+    if (!sessionId) return;
+    // Don't save empty content (it overwrites valid saved data)
+    if (!content && !reviewResult) {
+      console.log('[MarkdownEditor] Skipping save: no content and no review');
+      return;
+    }
+    console.log('[MarkdownEditor] Saving to storage:', {
+      contentLength: content.length,
+      hasReviewResult: !!reviewResult,
+      hasReviewHistory: reviewHistory.length > 0,
+      sessionId
+    });
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify({
+        content,
+        reviewResult,
+        reviewHistory,
+      }));
+    } catch (err) {
+      console.error('[MarkdownEditor] Save error:', err);
+    }
+  }, [content, reviewResult, reviewHistory, sessionId]);
   // Auto-dismiss save toast
   useEffect(() => {
     if (!saveToast) return;
@@ -119,6 +238,11 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
     ? reviewHistory[viewingHistoryIdx]?.result ?? null
     : reviewResult;
 
+  // Notify parent when review panel becomes active/collapsed
+  useEffect(() => {
+    onReviewActive?.(!!displayedResult && !reviewCollapsed);
+  }, [displayedResult, reviewCollapsed, onReviewActive]);
+
   // ── Review ──
   async function doReview() {
     if (!content.trim()) return;
@@ -131,6 +255,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
       setReviewResult(result);
       setReviewHistory(prev => [...prev, { result, contentSnapshot: content }]);
       setViewingHistoryIdx(null);
+      setReviewCollapsed(false);
     } catch (err: any) { setReviewError(err.message); }
     finally { setReviewing(false); }
   }
@@ -208,56 +333,6 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
       if (res.ok) { const d = await res.json(); if (d.title) return d.title; }
     } catch {}
     return `审查文档_${new Date().toLocaleDateString('zh-CN').replace(/\//g,'-')}`;
-  }
-
-  // ── Mini chat (user feedback for revise) ──
-  function openFeedbackChat() {
-    setMiniChatOpen(true);
-  }
-
-  function sendFeedbackAndRevise() {
-    const fb = miniInput.trim();
-    if (!fb) { handleRevise(); return; }
-    setMiniChatOpen(false);
-    setMiniInput('');
-    handleRevise(fb);
-  }
-
-  async function sendMiniMessage(msgs?: MiniMessage[]) {
-    if (miniSending) return;
-    const toSend = msgs || [{ role:'user' as const, content: miniInput.trim() }];
-    if (!msgs && !miniInput.trim()) return;
-    setMiniSending(true);
-    if (!msgs) { setMiniMessages(prev=>[...prev,{role:'user',content:miniInput.trim()}]); setMiniInput(''); }
-    setMiniMessages(prev=>[...prev,{role:'assistant',content:''}]);
-    const aiIdx = msgs ? 1 : miniMessages.length + 1;
-    try {
-      const res = await fetch('/api/chat/stream', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ workflowId, message: (toSend[0] as MiniMessage).content }) });
-      if (!res.ok) throw new Error('请求失败');
-      const reader = res.body?.getReader(); if (!reader) throw new Error('No stream');
-      const decoder = new TextDecoder(); let buffer = '';
-      while (true) {
-        const { done, value } = await reader.read(); if (done) break;
-        buffer += decoder.decode(value, { stream:true });
-        const lines = buffer.split('\n'); buffer = lines.pop() || '';
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const jsonStr = line.slice(6).trim(); if (!jsonStr) continue;
-          try { const chunk = JSON.parse(jsonStr); if (chunk.error) break; if (chunk.done) break;
-            setMiniMessages(prev => { const u=[...prev]; if(aiIdx<u.length)u[aiIdx]={...u[aiIdx],content:u[aiIdx].content+(chunk.delta||'')}; return u; });
-          } catch {}
-        }
-      }
-    } catch { setMiniMessages(prev=>prev.filter((_,j)=>j!==aiIdx)); }
-    finally { setMiniSending(false); }
-  }
-
-  function importRevision(text: string) {
-    setContent(text);
-    setMiniChatOpen(false);
-    setMiniMessages([]);
-    setImported(true);
-    onImported?.();
   }
 
   // ── Save ──
@@ -357,6 +432,13 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
           <span style={{ fontSize:'0.66rem', color:'var(--green-text)', background:'var(--green-bg)', padding:'2px 8px', borderRadius:3, fontWeight:500 }}>已导入</span>
         )}
         <div style={{ flex:1 }} />
+        {/* Show review button when collapsed but available */}
+        {reviewResult && reviewCollapsed && (
+          <button onClick={() => setReviewCollapsed(false)}
+            className="btn-ghost" style={{ padding:'4px 12px', fontSize:'0.72rem', color:'var(--green-text)', borderColor:'var(--green-border)', background:'var(--green-bg)' }}>
+            展开审查
+          </button>
+        )}
 
         {/* Review button: changes text after first review */}
         {reviewResult ? (
@@ -386,8 +468,8 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
       </div>
 
       {/* Body */}
-      <div style={{ flex:1, display:'flex', flexDirection:'column', overflow:'hidden' }}>
-        <div style={{ flex: displayedResult ? '0 0 50%' : 1, overflow:'auto', borderBottom: displayedResult ? '1px solid var(--border)' : 'none' }}>
+      <div style={{ flex:1, display:'flex', flexDirection: (displayedResult && !reviewCollapsed) ? 'row' : 'column', overflow:'hidden' }}>
+        <div style={{ flex: (displayedResult && !reviewCollapsed) ? 1 : 1, minWidth: (displayedResult && !reviewCollapsed) ? 300 : 0, overflow:'auto', borderRight: (displayedResult && !reviewCollapsed) ? 'none' : 'none', borderBottom: (displayedResult && !reviewCollapsed) ? 'none' : (displayedResult ? '1px solid var(--border)' : 'none') }}>
           {viewMode === 'edit' ? (
             <textarea value={content} onChange={e => handleContentChange(e.target.value)}
               placeholder="在此编辑 Markdown 内容…"
@@ -397,9 +479,24 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
           )}
         </div>
 
-        {/* Review result panel */}
-        {displayedResult && (
-          <div style={{ flex: '0 0 50%', overflowY:'auto', display:'flex', flexDirection:'column' }}>
+        {/* Drag handle: editor content ↔ review */}
+        {displayedResult && !reviewCollapsed && (
+          <ResizeHandle
+            onDrag={(dx) => {
+              setReviewPaneWidth(prev => {
+                const next = Math.max(240, Math.min(600, prev - dx));
+                return next;
+              });
+            }}
+            onDragEnd={() => {
+              try { localStorage.setItem('pm-review-pane', String(reviewPaneRef.current)); } catch {}
+            }}
+          />
+        )}
+
+        {/* Review result panel — right side when active, hidden when collapsed */}
+        {displayedResult && !reviewCollapsed && (
+          <div style={{ width: reviewPaneWidth, minWidth: reviewPaneWidth, maxWidth: reviewPaneWidth, flexShrink: 0, overflowY:'auto', display:'flex', flexDirection:'column' }}>
             {/* Review header bar */}
             <div style={{ padding:'8px 14px', borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between', flexShrink:0, background:'var(--sidebar-bg)' }}>
               <div style={{ display:'flex', alignItems:'center', gap:10 }}>
@@ -424,13 +521,8 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
                   {reviewing ? '审查中…' : '再次审查'}
                 </button>
                 {/* Revise button */}
-                <button onClick={() => handleRevise()} className="btn-primary" style={{ padding:'5px 14px', fontSize:'0.7rem' }}>
+                <button onClick={() => { setReviewCollapsed(true); setViewMode('edit'); handleRevise(); }} className="btn-primary" style={{ padding:'5px 14px', fontSize:'0.7rem' }}>
                   依此修改
-                </button>
-                {/* User feedback */}
-                <button onClick={openFeedbackChat} title="补充修改意见"
-                  className="btn-ghost" style={{ padding:'4px 8px', fontSize:'0.66rem' }}>
-                  补充意见
                 </button>
               </div>
             </div>
@@ -469,8 +561,8 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
                   <ul style={{ margin:0, paddingLeft:6, display:'flex', flexDirection:'column', gap:4, listStyle:'none' }}>
                     {displayedResult.strengths.map((s,i)=>(
                       <li key={i} style={{ display:'flex', gap:4, alignItems:'flex-start' }}>
-                        <input value={s} onChange={e => updateReviewStrength(i, e.target.value)}
-                          style={{ flex:1, padding:'4px 8px', border:'1px solid var(--green-border)', borderRadius:2, fontSize:'0.72rem', fontFamily:'inherit', background:'white' }} />
+                        <textarea value={s} onChange={e => updateReviewStrength(i, e.target.value)}
+                          style={{ flex:1, padding:'4px 8px', border:'1px solid var(--green-border)', borderRadius:2, fontSize:'0.72rem', fontFamily:'inherit', background:'white', resize:'vertical', minHeight:28, lineHeight:1.4 }} />
                         <button onClick={() => removeReviewStrength(i)} title="删除" style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.7rem', color:'var(--ink-faint)', padding:'2px' }}>×</button>
                       </li>
                     ))}
@@ -486,8 +578,8 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
                   <ul style={{ margin:0, paddingLeft:6, display:'flex', flexDirection:'column', gap:4, listStyle:'none' }}>
                     {displayedResult.weaknesses.map((s,i)=>(
                       <li key={i} style={{ display:'flex', gap:4, alignItems:'flex-start' }}>
-                        <input value={s} onChange={e => updateReviewWeakness(i, e.target.value)}
-                          style={{ flex:1, padding:'4px 8px', border:'1px solid var(--red-border)', borderRadius:2, fontSize:'0.72rem', fontFamily:'inherit', background:'white' }} />
+                        <textarea value={s} onChange={e => updateReviewWeakness(i, e.target.value)}
+                          style={{ flex:1, padding:'4px 8px', border:'1px solid var(--red-border)', borderRadius:2, fontSize:'0.72rem', fontFamily:'inherit', background:'white', resize:'vertical', minHeight:28, lineHeight:1.4 }} />
                         <button onClick={() => removeReviewWeakness(i)} title="删除" style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.7rem', color:'var(--ink-faint)', padding:'2px' }}>×</button>
                       </li>
                     ))}
@@ -503,8 +595,8 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
                   <ul style={{ margin:0, paddingLeft:6, display:'flex', flexDirection:'column', gap:4, listStyle:'none' }}>
                     {displayedResult.suggestions.map((s,i)=>(
                       <li key={i} style={{ display:'flex', gap:4, alignItems:'flex-start' }}>
-                        <input value={s} onChange={e => updateReviewSuggestion(i, e.target.value)}
-                          style={{ flex:1, padding:'4px 8px', border:'1px solid var(--accent-border)', borderRadius:2, fontSize:'0.72rem', fontFamily:'inherit', background:'white' }} />
+                        <textarea value={s} onChange={e => updateReviewSuggestion(i, e.target.value)}
+                          style={{ flex:1, padding:'4px 8px', border:'1px solid var(--accent-border)', borderRadius:2, fontSize:'0.72rem', fontFamily:'inherit', background:'white', resize:'vertical', minHeight:28, lineHeight:1.4 }} />
                         <button onClick={() => removeReviewSuggestion(i)} title="删除" style={{ background:'none', border:'none', cursor:'pointer', fontSize:'0.7rem', color:'var(--ink-faint)', padding:'2px' }}>×</button>
                       </li>
                     ))}
@@ -523,34 +615,9 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
         </div>
       )}
 
-      {/* Mini chat — user feedback before revise */}
-      {miniChatOpen && (
-        <div style={{ borderTop:'1px solid var(--border)', flexShrink:0, display:'flex', flexDirection:'column', maxHeight:220 }}>
-          <div style={{ padding:'6px 14px', fontSize:'0.72rem', fontWeight:600, borderBottom:'1px solid var(--border)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
-            补充修改意见
-            <button onClick={()=>setMiniChatOpen(false)} style={{ background:'none',border:'none',cursor:'pointer',fontSize:'0.8rem',color:'var(--ink-faint)' }}>✕</button>
-          </div>
-          <div style={{ padding:'10px 14px' }}>
-            <textarea value={miniInput} onChange={e=>setMiniInput(e.target.value)}
-              placeholder="输入补充意见（可选），然后点击发送将审查结果和意见一起提交修改。留空则直接按审查结果修改。"
-              style={{ width:'100%', height:80, padding:'8px 12px', border:'1px solid var(--border)', borderRadius:3, fontSize:'0.76rem', outline:'none', resize:'none', fontFamily:'inherit' }} />
-            <div style={{ display:'flex', justifyContent:'flex-end', gap:6, marginTop:8 }}>
-              <button onClick={() => { handleRevise(); setMiniChatOpen(false); }}
-                className="btn-ghost" style={{ fontSize:'0.72rem' }}>
-                直接修改（不用补充意见）
-              </button>
-              <button onClick={sendFeedbackAndRevise} disabled={!miniInput.trim()}
-                className="btn-primary" style={{ padding:'6px 14px', fontSize:'0.72rem' }}>
-                补充并修改
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Bottom bar */}
       <div style={{ padding:'8px 14px', borderTop:'1px solid var(--border)', display:'flex', alignItems:'center', gap:10, flexShrink:0, fontSize:'0.68rem', color:'var(--ink-faint)', fontFamily:'"JetBrains Mono",monospace' }}>
-        <span>{saved?'已保存':'已编辑'} · {lastEditTime.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})}</span>
+        <span>{saved?'已保存':'已编辑'} · {lastEditTime ? lastEditTime.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : '--'}</span>
         <span>V{versionCount}</span>
         {savedOutputId && <span style={{ color:'var(--accent)' }}>已关联产出</span>}
         <div style={{ flex:1 }} />
@@ -562,7 +629,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
       {/* Save Dialog */}
       {showSaveDialog && (
         <div className="modal-backdrop" style={{ position:'fixed', inset:0, background:'rgba(15,23,42,0.25)', zIndex:100, display:'flex', alignItems:'center', justifyContent:'center' }}>
-          <div className="modal-content" style={{ background:'white', borderRadius:5, padding:'24px 28px', minWidth:380, maxWidth:440, border:'1px solid var(--border)', maxHeight:'90vh', overflowY:'auto' }}>
+          <div className="modal-content resp-save-dialog" style={{ background:'white', borderRadius:5, padding:'24px 28px', minWidth:380, maxWidth:440, border:'1px solid var(--border)', maxHeight:'90vh', overflowY:'auto' }}>
             <div style={{ fontWeight:600, fontSize:'0.92rem', marginBottom:16 }}>保存工作产出</div>
             <div style={{ marginBottom:12 }}>
               <label style={{ display:'block', fontSize:'0.76rem', fontWeight:500, marginBottom:4, color:'var(--ink-muted)' }}>标题 <span style={{ color:'var(--red-text)' }}>*</span></label>
@@ -639,7 +706,7 @@ export default function MarkdownEditor({ initialContent, workflowId, sessionId, 
 
       {/* Save toast */}
       {saveToast && (
-        <div style={{
+        <div className="resp-toast" style={{
           position:'fixed', bottom:32, left:'50%', transform:'translateX(-50%)', zIndex:300,
           background: saveToast === '保存成功' ? 'var(--green-text)' : 'var(--red-text)',
           color:'white', padding:'10px 24px', borderRadius:4, fontSize:'0.82rem', fontWeight:500,

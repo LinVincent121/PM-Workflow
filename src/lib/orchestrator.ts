@@ -1,8 +1,22 @@
 import type { ChatMessage, LLMConfig, Session, WorkflowDef } from '@/types';
 import { buildSkillsContext } from './skill-loader';
 import { callLLM, streamLLM } from './llm/client';
-import { getSession, createSession, updateSession, setSessionStatus } from './db';
+import { getSession, createSession, updateSession, setSessionStatus, addAuditLog } from './db';
 import { loadWorkflowDef } from './skill-loader';
+import { buildFileContext, readFileBase64 } from './file-utils';
+
+interface UploadedFile {
+  fileId: string;
+  originalName: string;
+  mimeType: string;
+  size: number;
+  isImage: boolean;
+}
+
+function textContent(content: ChatMessage['content']): string {
+  if (typeof content === 'string') return content;
+  return content.map((part: any) => part.type === 'text' ? part.text : '').join(' ');
+}
 
 /**
  * Build the system prompt for a given workflow phase.
@@ -15,7 +29,7 @@ function buildSystemPrompt(workflow: WorkflowDef, phaseIdx: number, history: Cha
   const skillsContext = buildSkillsContext(phase.skills);
 
   return [
-    `你是「PM Workflow Assistant」，一个专业的产品经理工作流助手。`,
+    `你是「PM Workbench」，一个专业的产品经理工作助手。`,
     ``,
     `## 当前工作流`,
     `${workflow.emoji} ${workflow.name}：${workflow.shortDesc}`,
@@ -31,13 +45,14 @@ function buildSystemPrompt(workflow: WorkflowDef, phaseIdx: number, history: Cha
     `3. 如果用户自行输入文字回答，尊重并继续`,
     `4. 一个阶段完成后，告诉用户"✅ ${phase.title} 完成"，然后自然过渡到下一阶段`,
     `5. 所有阶段完成后，生成一份结构化的总结报告`,
-    `6. 全程使用中文交流`,
+    `6. 全程使用中文交流，直接回答问题`,
+    `7. 不要在回复中透露你的模型名称或版本信息`,
     ``,
     `## 参考 Skill 文档`,
     skillsContext,
     ``,
     `## 对话历史摘要`,
-    history.slice(-8).map((m) => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content.substring(0, 150)}`).join('\n'),
+    history.slice(-8).map((m) => `${m.role === 'user' ? '用户' : 'AI'}: ${textContent(m.content).substring(0, 150)}`).join('\n'),
   ].join('\n');
 }
 
@@ -46,17 +61,17 @@ function buildSystemPrompt(workflow: WorkflowDef, phaseIdx: number, history: Cha
  * Returns the AI response and updated session state.
  */
 export async function processMessage(
-  input: { sessionId?: string; workflowId?: string; message: string },
+  input: { sessionId?: string; workflowId?: string; message: string; userId?: string },
   config: LLMConfig,
 ): Promise<{ sessionId: string; response: string; phaseCompleted: boolean; currentPhase: number; totalPhases: number }> {
   // ── Resolve or create session ──
   let session: Session;
   if (input.sessionId) {
-    session = getSession(input.sessionId) || createSession(input.workflowId || 'idea-refinement');
+    session = getSession(input.sessionId, input.userId) || createSession(input.workflowId || 'idea-refinement', input.userId);
   } else if (input.workflowId) {
-    session = createSession(input.workflowId);
+    session = createSession(input.workflowId, input.userId);
   } else {
-    session = createSession('idea-refinement'); // default
+    session = createSession('idea-refinement', input.userId); // default
   }
 
   // ── Load workflow definition ──
@@ -95,7 +110,10 @@ export async function processMessage(
   updateSession(session.sessionId, {
     messages: updatedMessages,
     currentPhase: newPhase,
-  });
+  }, input.userId);
+  if (input.userId) {
+    addAuditLog(input.userId, 'llm_response', session.sessionId, result.content.slice(0, 4000));
+  }
 
   return {
     sessionId: session.sessionId,
@@ -110,17 +128,17 @@ export async function processMessage(
  * Generate a streaming response for a workflow session.
  */
 export async function* processMessageStream(
-  input: { sessionId?: string; workflowId?: string; message: string },
+  input: { sessionId?: string; workflowId?: string; message: string; files?: UploadedFile[]; userId?: string },
   config: LLMConfig,
-): AsyncGenerator<{ delta: string; done: boolean; sessionId: string; currentPhase?: number }, void, unknown> {
+): AsyncGenerator<{ delta: string; done: boolean; sessionId: string; currentPhase?: number; phaseCompleted?: boolean }, void, unknown> {
   // ── Resolve or create session ──
   let session: Session;
   if (input.sessionId) {
-    session = getSession(input.sessionId) || createSession(input.workflowId || 'idea-refinement');
+    session = getSession(input.sessionId, input.userId) || createSession(input.workflowId || 'idea-refinement', input.userId);
   } else if (input.workflowId) {
-    session = createSession(input.workflowId);
+    session = createSession(input.workflowId, input.userId);
   } else {
-    session = createSession('idea-refinement');
+    session = createSession('idea-refinement', input.userId);
   }
 
   const workflow = loadWorkflowDef(session.workflowId);
@@ -130,15 +148,40 @@ export async function* processMessageStream(
   }
 
   // ── Set streaming status ──
-  setSessionStatus(session.sessionId, 'streaming');
+  setSessionStatus(session.sessionId, 'streaming', input.userId);
 
   const messages: ChatMessage[] = [...session.messages, { role: 'user', content: input.message }];
-  const systemPrompt = buildSystemPrompt(workflow, session.currentPhase, messages);
+  let systemPrompt = buildSystemPrompt(workflow, session.currentPhase, messages);
+
+  // Add file context if files are uploaded
+  const uploadedFiles = input.files || [];
+  const images = uploadedFiles.filter(f => f.isImage);
+  const docs = uploadedFiles.filter(f => !f.isImage);
+  if (docs.length > 0) {
+    systemPrompt += '\n' + buildFileContext(docs, input.userId);
+  }
 
   const llmMessages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
-    ...messages,
+    ...messages.slice(0, -1), // exclude the last user message (we'll add a multimodal version)
   ];
+
+  // Build user message with images if present
+  if (images.length > 0) {
+    let userContent: any[] = [{ type: 'text' as const, text: input.message }];
+    for (const img of images) {
+      const b64 = readFileBase64(img.fileId, input.userId);
+      if (b64) {
+        userContent.push({
+          type: 'image_url' as const,
+          image_url: { url: `data:${b64.mimeType};base64,${b64.data}` },
+        });
+      }
+    }
+    llmMessages.push({ role: 'user', content: userContent as any });
+  } else {
+    llmMessages.push({ role: 'user', content: input.message });
+  }
 
   let fullContent = '';
 
@@ -163,9 +206,12 @@ export async function* processMessageStream(
     messages: updatedMessages,
     currentPhase: newPhase,
     status: 'unread', // mark as unread so sidebar shows red dot
-  });
+  }, input.userId);
+  if (input.userId) {
+    addAuditLog(input.userId, 'llm_response', session.sessionId, fullContent.slice(0, 4000));
+  }
 
-  yield { delta: '', done: true, sessionId: session.sessionId, currentPhase: newPhase };
+  yield { delta: '', done: true, sessionId: session.sessionId, currentPhase: newPhase, phaseCompleted };
 }
 
 /**
@@ -183,7 +229,7 @@ export async function startSession(workflowId: string, config: LLMConfig): Promi
   const session = createSession(workflowId);
   const workflow = loadWorkflowDef(workflowId);
   if (!workflow) {
-    return { sessionId: session.sessionId, greeting: `欢迎使用 PM Workflow Assistant。` };
+    return { sessionId: session.sessionId, greeting: `欢迎使用 PM Workbench。` };
   }
 
   const systemPrompt = buildSystemPrompt(workflow, 0, []);

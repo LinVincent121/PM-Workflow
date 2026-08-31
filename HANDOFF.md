@@ -1,139 +1,223 @@
-# HANDOFF — PM Workflow Assistant
+# Project Handover
 
-> 2026-07-21 · 项目清理 + Precision Instrument UI 重设计 + 编辑器交互增强
-
----
-
-## 项目概览
-
-**名称**：PM Workflow Assistant（PM 工作流助手）
-**仓库**：`https://github.com/LinVincent121/PM-Workflow`
-**路径**：`d:/Desktop/pm-skills-2`（注意：代码已搬至根目录 `src/`，不再是 `pm-workflow-assistant/` 子目录）
-**技术栈**：Next.js 14 App Router + better-sqlite3 + Tailwind CSS + 自定义 Markdown 渲染器 + SSE 流式 + Inter / JetBrains Mono 字体
-**启动**：`npm run dev`（需配 `.env` 文件，端口 3000）
-
-## 已完成功能
-
-### 项目结构清理
-- 移除了孤儿 `pm-workflow-assistant/` gitlink（旧 submodule 残留），代码已全部迁至根目录 `src/`
-- 修正 `skill-loader.ts` 和 `skills/list/route.ts` 中 `SKILLS_ROOT` 路径：从 `../pm-skills` → `pm-skills`
-- `.gitignore` 已排除 `.env`、`pm-workflow-assistant/`
-
-### Precision Instrument UI 重设计（commit a75aa86 + cd78022）
-- 颜色系统：暖纸色系 → 冷白 `#FAFBFD` + 电气蓝 `#2563EB` accent
-- 字体：Newsreader 衬线 → Inter（UI）+ JetBrains Mono（数据标签）
-- 卡片：去 emoji 图标 → 纯文字标签，hover 顶部蓝色指示条
-- 全部页面中文化：工作流、技能库、工作产出、模型设置
-- 侧边栏：inline SVG 图标（新建/工作流/技能库/工作产出/设置）
-
-### 编辑器 + 审查系统重写（8 个 commit）
-- **50/50 分屏**：对话区域和编辑区域各占 50%（排除侧边栏宽度）
-- **AI 审查毛玻璃遮罩**：审查中显示 blur 遮罩 + spinner
-- **审查结果结构化**：总结/优点/待改进/建议 四色卡片 + 上下 50% 分屏独立滚动
-- **审查结果可直接编辑**：总结 → textarea，优点/待改进/建议 → 可修改 input + × 删除 + + 添加
-- **审查历史记录**：每次审查存入 reviewHistory[]，顶部时间线标签切换查看
-- **「AI 已审查」状态**：完成后按钮变绿，收起再打开状态保留（key 固定）
-- **「已导入」状态**：per-message 追踪，导入后按钮变绿禁用
-- **智能修改 Prompt**：内容 ≤4000 字直接嵌入；>4000 字先自动存为工作产出再引导 AI 读取
-- **用户补充意见**：「补充意见」按钮 → 文本框 → 合并到修改 Prompt
-- **保存优化**：默认标题 `{工作流}_报告_YYYY-MM-DD`，去掉 AI 生成标题的等待；同一 outputId 自动版本递增
-- **编辑器 toggle 按钮**：对话页顶栏始终可见，收起后可再次打开
-
-### 对话页优化
-- 阶段进度条：紧凑内联 + 点击展开详细阶段列表
-- 对话气泡：冷白底色 + 蓝色边框（user）/ 灰色边框（AI）
-- 输入框：蓝色 focus ring，支持 Enter 发送 / Shift+Enter 换行
-
-## 当前状态
-
-### 本次会话提交（12 个新 commit，未推送）
-```
-7c62222 fix: editable review cards + 已导入 state + quick save defaults
-6b2d6b0 fix: persist review state across editor open/close
-b636785 feat: review history + smart revise + user feedback
-2c47c16 fix: 50/50 split excludes sidebar width
-754810c fix: fresh rewrite of editor and chat page — all 6 UX items
-276b04b fix: editor flex layout — remove duplicate wrapper div causing TSX error
-6562b49 fix: import-to-editor UX — close editor on import, keep per-message state
-3ab9ed8 fix: per-message imported state + conversation-page editor visibility
-cd78022 feat: full i18n + editor UX overhaul
-a75aa86 feat: complete UI redesign — Precision Instrument
-d222b6f fix: correct skills root path from ../pm-skills to pm-skills
-3ac8f33 chore: remove orphaned pm-workflow-assistant gitlink, add to gitignore
-```
-
-12 个 commit 待推送（领先 origin/master 12 个 commit）。
-
-### 已知问题
-1. **`.env` 被重置**：Agnes AI API 失效（返回 404 HTML），`.env` 已改为 OpenAI 默认占位。用户需在 Settings 页面填入有效 key
-2. **工作流 prompt 完整性**：10 个 JSON 工作流未做端到端验证
-3. **知识库功能**：侧边栏「知识库」入口仍为占位状态（未实现）
-4. **多用户/移动端**：未实现
-
-## 关键文件索引
-
-| 文件 | 用途 | 本次改动 |
-|------|------|---------|
-| `src/app/globals.css` | 设计 token：冷白+电气蓝+Inter+JetBrains Mono | 重写 |
-| `src/app/layout.tsx` | 字体加载 Inter + JetBrains Mono | 修改 |
-| `src/components/Sidebar.tsx` | 侧边栏：中文导航+SVG图标+历史分组 | 重写 |
-| `src/app/page.tsx` | 首页：5列网格+详情弹窗+底部输入+快速切换 | 重写 |
-| `src/app/workflow/[id]/page.tsx` | 聊天页：50/50分屏+阶段进度+气泡 | 重写 |
-| `src/components/MarkdownEditor.tsx` | 编辑器：审查系统+历史记录+可编辑卡片+智能修改 | 重写 |
-| `src/app/workflow/page.tsx` | 工作流列表页 | 重写 |
-| `src/app/skills/page.tsx` | 技能库索引页 | 重写 |
-| `src/app/outputs/page.tsx` | 工作产出页面 | 重写 |
-| `src/app/settings/page.tsx` | 模型设置页 | 重写 |
-| `src/lib/skill-loader.ts` | Skill 路径修正 | 修改 |
-| `src/app/api/skills/list/route.ts` | Skill 路径修正 | 修改 |
-
-## 踩过的坑（本会话新增）
-
-| # | 现象 | 原因 | 修复 | 预防 |
-|---|------|------|------|------|
-| 1 | Skills API 返回空数组 | `SKILLS_ROOT` 用了 `../pm-skills`，cwd 变为根目录后路径解析为 `d:/Desktop/pm-skills`（不存在） | 改为 `pm-skills` | 项目结构调整后检查所有相对路径 |
-| 2 | `MarkdownEditor` 工具栏不可见 | 两层 `flex: 0 0 50%` 嵌套 + `minWidth:0` 导致内容挤压 | 外层父容器控制宽度，内层用 `flex:1` 填充 | 复杂 flex 嵌套先画 ASCII 层级图再写代码 |
-| 3 | 「已导入」不生效 | `handleImportDone` 用 `messages.findIndex` 匹配内容，但编辑器内内容可能已被修改 | 改为 `editingMsgIdx` 在 `openEditor` 时直接记录消息索引 | 状态追踪优先用索引而非内容匹配 |
-| 4 | Agnes AI API 返回 404 HTML | `platform.agnes-ai.com/v1/chat/completions` 路径不存在 | `.env` 重置为 OpenAI 默认 | 新 provider 先用 curl 验证 endpoint |
-
-## 未修复 Bug（2026-07-22 确认仍存在）
-
-以下 3 个 bug 已尝试修复多次但尚未 root-cause，标注实际行为与期望行为，需要下个会话继续排查：
-
-### BUG-1：「导入编辑」按钮文案未变更
-
-- **期望行为**：点击对话区的「导入编辑」→ 进入编辑器 → mini chat 中「导入此版本」→ 按钮变绿色「已导入」
-- **实际行为**：`handleImportDone()` 在 `onImported` 回调中执行，但 `editingMsgIdx` 为 `null`（关闭编辑器时被 `setEditingMsgIdx(null)` 清零），导致 `setImportedMsgIdx` 未被调用
-- **根因分析**：时序问题——`handleImportDone` 在设置 `importedMsgIdx` 后又 `setEditorOpen(false)` + `setEditingMsgIdx(null)`。React 批量更新可能把 `setImportedMsgIdx` 和 `setEditingMsgIdx(null)` 合并，或者 `editorOpen=false` 导致组件卸载时 React 丢弃了待处理的状态更新
-- **排查方向**：尝试将 `setImportedMsgIdx` 和 `setEditorOpen(false)` 拆为两个独立的函数调用，或者用 `useRef` 替代 `useState` 追踪导入状态
-
-### BUG-2：「AI 审查」按钮状态不持久（关闭编辑器后重置）
-
-- **期望行为**：AI 审查完成后按钮变绿「AI 已审查」→ 关闭编辑器 → 再打开 → 按钮仍然是「AI 已审查」状态
-- **实际行为**：加了 `key='editor-active'` 后，`reviewResult` 状态仍然在 close → reopen 时丢失
-- **根因分析**：`key='editor-active'` 是固定值，React 不会重新 mount。但条件渲染 `{editorOpen && <MarkdownEditor/>}` 中 `editorOpen=false` 会**卸载**整个组件树，状态全部销毁。下次 `editorOpen=true` 时组件全新 mount，`reviewResult` 初始化为 `null`
-- **排查方向**：改为始终渲染但用 CSS `display:none` 隐藏（而非条件渲染卸载），或把 `reviewResult` 状态提升到父组件的 `useRef` 中
-
-### BUG-3：同工作流保存时创建新产出而非更新旧产出
-
-- **期望行为**：在同一工作流对话中多次保存，使用同一个 `outputId`，只递增版本号
-- **实际行为**：每次保存都创建新的工作产出记录。关闭编辑器后 `outputId` 状态被卸载丢失；手动「保存」时 `openSaveDialog` 的 `if (!outputId)` 条件为 `true`，走新纪录创建路径
-- **根因分析**：`MarkdownEditor` 卸载后 `outputId` 丢失。即使 BUG-2 解决让组件不卸载，`savedOutputId` 也仅通过「依此修改」的 auto-save 路径设置，手动点击「保存」按钮时 `outputId` 可能仍未设置
-- **排查方向**：将 `outputId` / `savedOutputId` 提升到父组件 `WorkflowChatPage` 中（不随编辑器卸载丢失）；手动保存时先查是否已有同 sessionId+workflowId 的产出记录
-
-## 系统记忆
-
-6 条记忆已录入（同上一次交接），本项目新会话自动加载：
-- Tailwind list-style reset
-- SQLite column migration
-- SQLite date format
-- Sidebar time label guard
-- Markdown table rendering
-- Markdown inline recursive formatting
+> Last updated: 2026-07-24 | Coverage: partial
 
 <!-- project-handover:generated:start -->
+## 项目现状与目标
+
+**名称**：PM Workbench
+**仓库**：`https://github.com/LinVincent121/PM-Workflow`
+**路径**：`d:/Desktop/pm-skills-2`
+**技术栈**：Next.js 14 App Router + better-sqlite3 + Tailwind CSS + 自定义 Markdown 渲染器 + SSE 流式
+**启动**：`npm run dev`（需配 `.env` 文件，端口 3000）
+
+核心功能：
+- 10 个 PM 工作流 JSON（想法完善、竞品分析、商业战略、PRD 交付等）
+- 通用对话 `/chat` 页面（纯 LLM 调用，不经过工作流编排）
+- 流式对话（SSE）+ Markdown 编辑器（预览/编辑切换 + AI 审查）
+- 文件/图片上传（最多 1 个文档 + 2 张图片，支持多模态）
+- 工作产出管理（文件夹组织 + 版本历史）
+- 设置页面（API key + 模型配置）
+
+## 任务记录与完成状态
+
+### 首页与工作流对话页面UI优化（已完成 - 2026-07-22）
+
+**状态**：已完成
+**Git commit**：`5e1b39a`
+
+**主要改动**：
+1. 首页：数据汇总区、推荐工作流卡片、工作流选择器、现代化输入框
+2. 工作流对话页：消息居中、输入框优化、文件上传UI
+3. 系统提示词、会话过滤、快速启动逻辑
+
+### 文件夹管理 + 产出组织系统（已完成 - 2026-07-22）
+
+**状态**：已完成
+**Git commit**：`5e1b39a`
+
+### 已修复的3个BUG（已完成 - 2026-07-22）
+
+**Git commit**：`140b2d5`
+
+1. ✅ review 卡片编辑保存问题（useRef 替代 state）
+2. ✅ "已导入"状态丢失问题
+3. ✅ 快速保存默认值问题
+
+### 2026-07-24 修复任务（已完成）
+
+#### 1. 通用对话独立页面 ✅
+
+创建 `/chat` 页面 + `/api/chat/simple` SSE 端点，纯 LLM 调用不经过工作流编排。
+涉及文件：`src/app/chat/page.tsx`（新建）、`src/app/api/chat/simple/route.ts`（新建）、`src/app/page.tsx`
+
+#### 2. 双气泡修复 ✅
+
+**根因**：`{sending && <div className="msg-ai">▊</div>}` 光标闪烁元素独立渲染为第二个 AI 气泡，与空 assistant 消息叠在一起。
+**修复**：删除独立的光标 `msg-ai` 元素，改为在最后一条 assistant 消息内容末尾添加内联 `cursor-blink`。
+**后续增强**：移除 `setTimeout` 延迟 → 直接调用 `handleSend`；添加 `AbortController` 防止 Strict Mode 下双重 SSE 流。
+涉及文件：`src/app/workflow/[id]/page.tsx`、`src/app/chat/page.tsx`
+
+#### 3. 品牌名称改回 PM Workbench ✅
+
+涉及文件：`Sidebar.tsx`、`globals.css`、`layout.tsx`、`orchestrator.ts`
+
+#### 4. 回复开头自我介绍修复 ✅
+
+**根因**：System prompt 中 "直接以 PM Workbench 的身份开始对话" 被 LLM 理解为每次回复都要自我介绍。
+**修复**：改为 "直接回答问题，不要每次都自我介绍"。
+涉及文件：`src/lib/orchestrator.ts`、`src/app/api/chat/simple/route.ts`
+
+#### 5. 通用对话历史记录 ✅
+
+**修复**：`/api/chat/simple` 创建 session（`workflowId: 'chat'`），发送前保存 user 消息，流式完成后保存 assistant 消息。Sidebar 路由 `workflowId === 'chat'` → `/chat?sid=`。
+涉及文件：`src/app/api/chat/simple/route.ts`、`src/app/chat/page.tsx`、`src/components/Sidebar.tsx`、`src/lib/db.ts`
+
+#### 6. 通用对话标题生成 ✅
+
+**修复**：发送消息时立即用用户消息前 30 字作为临时标题，AI 回复后通过 `/api/sessions/generate-title` 生成正式标题替换。
+涉及文件：`src/app/api/chat/simple/route.ts`、`src/app/chat/page.tsx`
+
+#### 7. Streaming 会话卡死修复 ✅
+
+**根因**：SSE 流出错时 catch 块未重置 session 状态；`markSessionRead` 只处理 `unread` 不处理 `streaming`。
+**修复**：catch 中 `updateSession(sid, {status:'idle'})`；`markSessionRead` SQL 改为 `status IN ('unread','streaming')`；Sidebar 对 `streaming` 状态也调用 `mark-read`。
+涉及文件：`src/app/api/chat/simple/route.ts`、`src/lib/db.ts`、`src/components/Sidebar.tsx`
+
+#### 8. 同路由切换会话卡死修复 ✅
+
+**根因**：Next.js 在同路由 `/chat?sid=A` → `/chat?sid=B` 时不重新挂载组件，`historyLoaded` 保持 `true` 导致 session 加载 effect 被跳过。
+**修复**：新增 `useEffect` 监听 URL 中 `sid` 变化，检测到 `sid !== sessionId` 时重置 `historyLoaded`、`messages`、`sessionId`。
+涉及文件：`src/app/chat/page.tsx`
+
+#### 9. 多模态消息渲染崩溃修复 ✅
+
+**根因**：含图片的消息 `content` 是数组 `[{type:'text',...}, {type:'image_url',...}]`，渲染时 `{m.content}` 对数组调 `.toString()` 导致崩溃。
+**修复**：`sanitizeContent` 支持数组类型；渲染时对数组提取 `text` 部分。
+涉及文件：`src/lib/llm/client.ts`、`src/app/chat/page.tsx`、`src/app/workflow/[id]/page.tsx`、`src/types/index.ts`
+
+#### 10. 文件/图片上传功能 ✅
+
+**新增文件**：
+- `src/app/api/upload/route.ts` — 上传 API，multipart 接收，保存到 `data/uploads/`
+- `src/app/api/files/[fileId]/route.ts` — 文件服务 API，支持下载和图片访问
+- `src/lib/file-utils.ts` — 文件读取工具（文本提取、base64 转换、LLM prompt 上下文构建）
+
+**修改文件**：
+- `src/app/page.tsx` — `handleSend` 改为 async，发送前上传文件，元信息存 sessionStorage
+- `src/app/chat/page.tsx` — sessionStorage 读取文件、展示区（文档下载、图片点击预览）、modal 预览、上传按钮
+- `src/app/workflow/[id]/page.tsx` — 同上
+- `src/app/api/chat/simple/route.ts` — 接受 `files` 参数，文本注入 prompt，图片用 base64 多模态
+- `src/lib/orchestrator.ts` — `processMessageStream` 接受 `files` 参数
+- `src/app/api/chat/stream/route.ts` — 接受并传递 `files`
+
+**限制**：文档最多 1 个 ≤10MB，图片最多 2 张 ≤5MB
+
+#### 11. 侧边栏 Streaming 状态按钮显示 ✅
+
+**修复**：移除 `s.status !== 'streaming'` 条件，hover 时"重命名""删除"按钮始终显示。
+涉及文件：`src/components/Sidebar.tsx`
+
+## 产出与交付物
+
+### 已实现功能
+
+1. **首页**：`/` — 数据汇总、推荐工作流、工作流选择器、文件上传+发送
+2. **通用对话**：`/chat` — 独立页面，纯 LLM 对话，不含工作流，支持文件/图片
+3. **工作流列表页**：`/workflow`
+4. **工作流对话页**：`/workflow/[id]` — 消息居中、文件上传、自动发送、Markdown 编辑器
+5. **产出管理页面**：`/outputs` — 文件夹管理、预览编辑器、下载 .md
+6. **文件上传**：`/api/upload` + `/api/files/[fileId]` — 上传、下载、图片预览
+
+## 已确定的方案、约定与偏好
+
+### UI设计风格
+- 圆角 24px 输入框，边框 1.5px solid #e5e7eb
+- 消息容器 maxWidth 900px，气泡 maxWidth 75%
+- 按钮：圆形 36px，图标式设计
+
+### 品牌名称
+- 统一使用"PM Workbench"
+
+### 文件上传
+- 文档：最多 1 个，≤10MB（.pdf, .doc, .docx, .xls, .xlsx, .ppt, .pptx, .txt, .md）
+- 图片：最多 2 张，≤5MB（.png, .jpg, .jpeg, .gif, .webp）
+- 文件信息通过 sessionStorage 传递（键名 `pm-uploaded-files`）
+
+### 会话管理
+- 通用对话 session 使用 `workflowId: 'chat'`
+- Sidebar 路由 `chat` → `/chat?sid=`，其他 → `/workflow/[id]?sid=`
+- 会话过滤：`messages.length > 0`
+
+## 踩坑与已验证修复
+
+### 1. React State 更新时序问题
+使用 `useRef` 存储最新值，避免闭包中的异步 state 过期。
+
+### 2. React Strict Mode 双重挂载
+- sessionStorage 在 effect 中 `removeItem` 会导致第二次挂载数据丢失 → 移到消费点删除
+- SSE 流在卸载时未中止 → 使用 `AbortController`
+
+### 3. Next.js App Router 同路由组件不复挂载
+`/chat?sid=A` → `/chat?sid=B` 时不重新挂载，需手动监听 `searchParams` 变化并重置状态。
+
+### 4. 多模态 content 类型
+含图片消息的 `content` 是数组，渲染和 `sanitizeContent` 需做类型判断。
+
+### 5. 侧边栏 streaming 状态按钮
+`streaming` 不应阻止重命名/删除按钮显示。
+
+## 未完成事项与下一步
+
+### 已明确未修复BUG
+
+1. **图片上传后对话页不显示图片**
+   - **现象**：首页上传图片 → 进入 `/chat` → 第一条用户消息上方没有显示对应图片
+   - **上次修复**：移除 `messages.length > 0` 条件 + 移动 sessionStorage 清理时机
+   - **状态**：仍未修复，需继续排查
+   - **优先级**：高
+
+2. **删除当前查看的会话时右侧页面不刷新**
+   - **现象**：左侧任务栏删除当前正在查看的会话时，右侧页面不刷新，需手动跳转到首页
+   - **预期**：删除后自动跳转到首页
+   - **额外需求**：删除时需弹出二次确认弹窗
+   - **优先级**：中
+
+### 下一步计划
+
+1. 修复图片上传后不显示的 BUG
+2. 实现删除会话时自动跳转 + 二次确认
+3. 测试文件上传完整流程
+4. 优化首页布局
+
+## 已知问题与限制
+
+1. **LLM API Key 配置**：首次使用需在 Settings 页面填入有效 key
+2. **图片显示**：图片上传后对话页展示有 BUG，见上方未修复列表
+
+## 对话覆盖情况
+
+**本次更新**：基于 2026-07-24 会话增量更新
+**覆盖状态**：partial
+**读取对话数**：1（当前会话）
+**主要新增**：
+- 通用对话独立页面 `/chat`
+- 双气泡修复（光标放入 assistant 消息内部）
+- 品牌名称 PM Workbench
+- 回复自我介绍修复
+- 通用对话 session 历史记录 + 标题生成
+- Streaming 会话卡死修复
+- 同路由会话切换卡死修复
+- 多模态消息渲染崩溃修复
+- 文件/图片上传完整功能
+- 侧边栏 streaming 状态按钮修复
+- 2 个未修复 BUG 记录
+
+**已记录 commit**：
+- `5e1b39a`（2026-07-22）：文件夹管理 + 产出组织 + 编辑&下载功能
+- `140b2d5`（2026-07-22）：文档记录 3 个已修复 BUG
 <!-- project-handover:generated:end -->
 
 <!-- project-handover:state
-{"version":1,"project_root":"D:\\Desktop\\pm-skills-2","last_sync":"2026-07-21T00:00:00Z","coverage":"partial","threads":{}}
+{"version":1,"project_root":"D:\\Desktop\\pm-skills-2","last_sync":"2026-07-24T16:00:00Z","coverage":"partial","threads":{"session-20260722":{"fingerprint":"ui-optimization-bugs","updated_at":"2026-07-22T18:30:00Z","title":"首页与工作流对话页面UI优化+已知BUG记录"},"session-20260724":{"fingerprint":"chat-page-file-upload-bugfixes","updated_at":"2026-07-24T16:00:00Z","title":"通用对话页面+文件上传+多项BUG修复"}}}
 -->
