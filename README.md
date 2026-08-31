@@ -1,94 +1,132 @@
-# PM工作助手 (PM Workflow Assistant)
+# PM Workbench
 
-> 产品经理的 AI 工作助手 — 10 个结构化工作流 × 100+ 个 PM Skills，一站式覆盖从想法到发布的全流程。
+面向产品团队的中文 AI 工作台：把模糊问题拆成可执行的工作流，并沉淀为可编辑、可审查、可追踪的交付物。
 
-## ✨ 功能
+## 核心能力
 
-- **10 个结构化工作流**：产品想法完善、竞品分析、商业战略、PRD 交付、需求排布、发布全流程、事故响应、Build vs Buy、新用户激活、Agent 编排
-- **100+ PM Skills**：problem-statement、customer-journey-map、SWOT、PESTEL、定价策略等
-- **AI 驱动对话**：SSE 流式对话，逐步引导完成每个阶段
-- **Markdown 编辑器**：AI 审查 + 一键修改 + 版本历史保存
-- **工作产出管理**：自动生成标题、版本快照、历史版本预览
-- **Skills 管理**：浏览、搜索所有 PM Skill 文档
+- **结构化工作流**：产品想法、竞品分析、商业战略、PRD 交付等 10 个工作流
+- **通用对话**：支持 SSE 流式回复、Markdown 渲染和文件/图片上下文
+- **AI 审查**：对产出物进行完整性、质量、结构和差距分析
+- **产出物管理**：文件夹、版本快照、预览、编辑和下载
+- **文件管理**：上传、列表、预览、下载和删除；用户目录隔离
+- **账号体系**：QQ 邮箱验证码注册、登录、退出、密码修改、找回密码和账号注销
+- **权限管理**：普通用户/超级管理员角色，管理员控制台和用户启用/禁用
+- **审计日志**：登录、模型回答、会话、产出物、文件和账号操作均可追踪
+- **安全基础设施**：限流、用户数据隔离、健康检查、备份脚本和生产安全响应头
 
-## 🚀 快速开始
-
-### 环境要求
-- Node.js 18+
-- npm 或 yarn
-
-### 安装
-```bash
-cd pm-workflow-assistant
-npm install
-```
-
-### 配置 LLM
-复制 `.env.example` → `.env`，填写你的 API key：
-```env
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_API_KEY=sk-xxx
-LLM_MODEL=gpt-4o
-```
-支持所有 OpenAI 兼容 API（OpenRouter、Together AI、DeepSeek、Ollama 等）。
-
-### 启动
-```bash
-npm run dev
-```
-打开 http://localhost:3000
-
-## 🏗️ 技术栈
+## 技术栈
 
 | 层面 | 技术 |
-|------|------|
-| 框架 | Next.js 14 (App Router) |
-| 语言 | TypeScript |
-| 样式 | Tailwind CSS + CSS 自定义属性 |
-| 数据库 | SQLite (better-sqlite3) |
-| AI | OpenAI 兼容 API (SSE 流式) |
+| --- | --- |
+| Web 框架 | Next.js 14 App Router |
+| 语言 | TypeScript + React 18 |
+| 数据库 | SQLite + better-sqlite3 |
+| AI | OpenAI 兼容 API，支持流式 SSE |
+| 邮件 | QQ SMTP 验证码 |
+| 测试 | Playwright + Node.js 数据隔离检查 |
 
-## 📁 项目结构
+## 本地运行
 
-```
-pm-skills-2/
-├── README.md                    # 本文件
-├── pm-skills/                   # 100+ PM Skill 文档（SKILL.md）
-├── pm-workflow-assistant/       # Next.js Web 应用
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx              # 首页（工作流卡片）
-│   │   │   ├── workflow/[id]/page.tsx # 工作流对话页
-│   │   │   ├── outputs/page.tsx      # 工作产出管理（版本历史）
-│   │   │   ├── skills/page.tsx       # Skills 文档浏览
-│   │   │   ├── settings/page.tsx     # LLM 配置
-│   │   │   └── api/                  # API 路由
-│   │   ├── components/
-│   │   │   ├── Sidebar.tsx           # 侧边栏导航
-│   │   │   ├── MarkdownEditor.tsx    # AI 审查 + 编辑 + 版本保存
-│   │   │   └── Markdown.tsx          # Markdown 渲染
-│   │   ├── lib/
-│   │   │   ├── db.ts                 # SQLite 数据层
-│   │   │   ├── orchestrator.ts       # 工作流编排
-│   │   │   ├── skill-loader.ts       # Skill 文件加载
-│   │   │   ├── title-generator.ts    # AI 标题生成
-│   │   │   └── llm/client.ts         # OpenAI 兼容客户端
-│   │   ├── types/index.ts            # 类型定义
-│   │   └── data/workflows/           # 10 个工作流 JSON 定义
-│   └── package.json
-```
+### 环境要求
 
-## 🔄 更新日志
+- Node.js 20（better-sqlite3 当前按 Node 20 构建）
+- npm
 
-### 2026-07-20
-- **AI 审查 → 主对话注入**：「依据审核结果修改」按钮改为将审查结果注入右侧主对话面板，不再新开迷你窗口
-- **保存自动标题**：打开保存弹窗时自动调用 AI 生成 6-15 字中文标题
-- **版本历史**：工作产出页面支持展开查看历史版本，点击可预览完整内容，最新版本标记「最新」
-- **LLM 400 错误修复**：新增 `sanitizeContent()` 转义 `\x` 序列，防止 JSON 解析器误判 hex escape；请求体 >100KB 时打印警告日志
-- **页签标题**：浏览器标签页改为「PM工作助手」
-- **侧边栏性能优化**：`groupSessions` 加 `useMemo` 缓存；`SidebarLink` 加 `React.memo` 防止不必要重渲染；全局 `mousedown` 监听器按需挂载（仅在重命名时）
-- **Skills 递归扫描**：支持合集嵌套目录（如 `pm-skills/pm-skills/swot-analysis/`），顶层 + 嵌套 Skill 全部展示
+### 安装
 
-## 📄 License
+~~~bash
+npm install
+~~~
+
+### 配置环境变量
+
+复制 .env.example 为 .env.local，至少填写：
+
+~~~env
+DATABASE_PATH=data/pmwa.db
+AUTH_SECRET=请生成一段随机密钥
+SMTP_HOST=smtp.qq.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=你的QQ邮箱
+SMTP_PASSWORD=QQ邮箱SMTP授权码
+SMTP_FROM=你的QQ邮箱
+~~~
+
+模型 Key 可以由每个用户在设置页填写，也可以通过环境变量提供默认配置：
+
+~~~env
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_API_KEY=
+LLM_MODEL=gpt-4o
+~~~
+
+### 启动
+
+~~~bash
+npm run dev
+~~~
+
+访问 http://localhost:3000。
+
+## 常用命令
+
+~~~bash
+npm run dev                 # 开发服务
+npm run build               # 生产构建
+npm run start               # 启动生产服务
+npm run backup              # 创建 SQLite 备份并清理过期备份
+npm run migrate:legacy      # 迁移历史数据
+npm run test:isolation      # 数据库结构隔离检查
+npm run test:e2e            # 认证与数据隔离检查
+npm run test:browser        # Playwright 浏览器测试
+npx tsc --noEmit            # TypeScript 检查
+~~~
+
+首次运行浏览器测试需要安装 Chromium：
+
+~~~bash
+npx playwright install chromium
+npx playwright install chromium-headless-shell
+~~~
+
+登录后的浏览器测试需要临时设置 E2E_EMAIL 和 E2E_PASSWORD。
+
+## 主要页面
+
+| 页面 | 地址 | 说明 |
+| --- | --- | --- |
+| 首页 | / | 产品介绍、登录注册和快速开始 |
+| 新建任务 | /chat | 通用 AI 对话和推荐工作流 |
+| 工作流 | /workflow | 浏览和启动结构化工作流 |
+| 工作产出 | /outputs | 文件夹、产出物和版本管理 |
+| 文件管理 | /files | 文件列表、预览、下载和删除 |
+| 模型设置 | /settings | 配置个人模型连接 |
+| 管理后台 | /admin | 管理员账号与审计日志 |
+| 健康检查 | /api/health | 服务和数据库状态探针 |
+
+## 数据与安全
+
+- 默认使用本地 SQLite，数据库位于 data/pmwa.db
+- 用户数据通过 user_id 做归属校验
+- 上传文件按用户目录隔离
+- .env、.env.local、数据库、上传文件和备份目录不会提交到 Git
+- 账号注销会清理账号、Session、设置、工作会话、文件夹、产出版本和本地上传文件
+- 修改邮箱功能当前暂时下线，页面和 API 会明确提示不可用
+- 生产环境建议通过 HTTPS、反向代理和定时任务运行备份
+
+## 项目结构
+
+~~~text
+src/
+├── app/                 # 页面和 API 路由
+├── components/          # 共享 UI 组件
+├── lib/                 # 数据库、认证、邮件、LLM 和文件工具
+└── types/               # TypeScript 类型
+scripts/                 # 备份、迁移和自动化检查脚本
+tests/e2e/               # Playwright 浏览器测试
+~~~
+
+## License
 
 MIT
